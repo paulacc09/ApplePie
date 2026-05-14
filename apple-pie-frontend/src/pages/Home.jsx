@@ -1,22 +1,103 @@
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { api } from '../api/axios.js'
+import { getErrorMessage } from '../lib/apiError.js'
 import { useAuth } from '../context/AuthContext.jsx'
 
-const mockComunidades = [
-  { nombre: 'Cálculo en equipo', materia: 'Cálculo III', emoji: '📐' },
-  { nombre: 'Estructuras Study', materia: 'Estructuras de datos', emoji: '💻' },
-  { nombre: 'Física moderna', materia: 'Física', emoji: '🔬' },
-]
+const EMOJIS = ['🔬', '📐', '💻', '📊']
 
-const mockRecursos = [
-  { nombre: 'Resumen integrales.pdf', autor: 'María G.', fecha: 'Hace 2 días' },
-  { nombre: 'Árboles binarios — guía.pdf', autor: 'Ana R.', fecha: 'Hace 5 días' },
-  { nombre: 'Ondas y partículas.pdf', autor: 'Lucía P.', fecha: 'Hace 1 semana' },
-]
+function careerEmoji(asignatura) {
+  if (!asignatura) return '💻'
+  let h = 0
+  for (let i = 0; i < asignatura.length; i += 1) {
+    h = (h + asignatura.charCodeAt(i) * 13) % 997
+  }
+  return EMOJIS[h % EMOJIS.length]
+}
+
+function normalizeComunidadesList(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.comunidades)) return data.comunidades
+  if (Array.isArray(data?.data)) return data.data
+  return []
+}
+
+function normalizeRecursosList(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.recursos)) return data.recursos
+  if (Array.isArray(data?.data)) return data.data
+  return []
+}
+
+function mapComunidadHome(raw) {
+  return {
+    id: String(raw.id ?? ''),
+    nombre: raw.nombre ?? 'Sin nombre',
+    asignatura: raw.asignatura ?? raw.materia ?? '',
+  }
+}
+
+function mapRecursoHome(raw) {
+  return {
+    id: String(raw.id ?? ''),
+    nombre: raw.nombre ?? raw.titulo ?? 'Sin nombre',
+    tipo: raw.tipo ?? 'PDF',
+    subido_por: raw.subido_por ?? raw.autor ?? '',
+    fecha: raw.created_at ?? raw.fecha ?? '',
+  }
+}
+
+function tipoBadgeLabel(tipo) {
+  const t = String(tipo ?? 'PDF').toUpperCase()
+  if (t.includes('DOC')) return 'DOC'
+  if (t.includes('PPT')) return 'PPT'
+  if (t.includes('PDF')) return 'PDF'
+  return t.slice(0, 3) || 'PDF'
+}
 
 export default function Home() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const nombre = user?.nombre ?? user?.name ?? 'estudiante'
+  const [comunidades, setComunidades] = useState([])
+  const [recursos, setRecursos] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadComunidades() {
+      try {
+        const { data } = await api.get('/api/comunidades')
+        if (cancelled) return
+        setComunidades(normalizeComunidadesList(data).map(mapComunidadHome))
+      } catch (e) {
+        if (!cancelled) {
+          void getErrorMessage(e)
+          setComunidades([])
+        }
+      }
+    }
+
+    async function loadRecursos() {
+      try {
+        const { data } = await api.get('/api/recursos')
+        if (cancelled) return
+        setRecursos(normalizeRecursosList(data).map(mapRecursoHome))
+      } catch (e) {
+        if (!cancelled) {
+          void getErrorMessage(e)
+          setRecursos([])
+        }
+      }
+    }
+
+    loadComunidades()
+    loadRecursos()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 md:max-w-5xl">
@@ -47,16 +128,16 @@ export default function Home() {
           </Link>
         </div>
         <div className="-mx-4 flex gap-3 overflow-x-auto pb-2 px-4 md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
-          {mockComunidades.map((c) => (
+          {comunidades.map((c) => (
             <article
-              key={c.nombre}
+              key={c.id || c.nombre}
               className="min-w-[160px] shrink-0 rounded-2xl bg-rose-light p-4 shadow-card"
             >
               <div className="text-2xl" aria-hidden="true">
-                {c.emoji}
+                {careerEmoji(c.asignatura)}
               </div>
               <p className="mt-2 text-sm font-medium text-ink">{c.nombre}</p>
-              <p className="text-xs text-stone">{c.materia}</p>
+              <p className="text-xs text-stone">{c.asignatura}</p>
             </article>
           ))}
           <button
@@ -75,16 +156,18 @@ export default function Home() {
       <section>
         <h2 className="mb-3 font-display text-lg text-ink">Recursos Recientes</h2>
         <ul className="space-y-2">
-          {mockRecursos.map((r) => (
+          {recursos.map((r) => (
             <li
-              key={r.nombre}
+              key={r.id || r.nombre}
               className="flex items-center gap-3 rounded-xl bg-warm p-3 shadow-card"
             >
-              <span className="rounded-lg bg-blush px-2 py-2 text-xs font-bold text-rose-dark">PDF</span>
+              <span className="rounded-lg bg-blush px-2 py-2 text-xs font-bold text-rose-dark">
+                {tipoBadgeLabel(r.tipo)}
+              </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-ink">{r.nombre}</p>
                 <p className="text-xs text-faded">
-                  Subido por {r.autor} · {r.fecha}
+                  Subido por {r.subido_por} · {r.fecha}
                 </p>
               </div>
               <button type="button" className="text-xs font-medium text-rose-dark hover:underline">

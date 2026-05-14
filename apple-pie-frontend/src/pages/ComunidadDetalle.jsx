@@ -1,32 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import LogoApplePie from '../components/LogoApplePie.jsx'
 import { api } from '../api/axios.js'
 import { getErrorMessage } from '../lib/apiError.js'
-
-const MOCK_POSTS = [
-  {
-    id: 1,
-    name: 'Laura Méndez',
-    handle: '@lauram',
-    time: 'Hace 2 h',
-    text: '¿Alguien tiene los ejercicios resueltos de la guía 3?',
-  },
-  {
-    id: 2,
-    name: 'Camila Ruiz',
-    handle: '@camruiz',
-    time: 'Hace 5 h',
-    text: 'Yo los subí al drive del grupo, revisen el canal de recursos.',
-    replies: [{ name: 'Laura Méndez', text: '¡Gracias Cami! 💜' }],
-  },
-]
-
-const MOCK_MEMBERS = [
-  { name: 'Valentina Soto', role: 'mentora', info: 'Ingeniera civil · 8vo' },
-  { name: 'Isabel Núñez', role: 'moderadora', info: 'Matemáticas · 6to' },
-  { name: 'Paula Costa', role: 'estudiante', info: 'Cálculo III · 4to' },
-]
 
 function avatarBg(role) {
   if (role === 'mentora') return 'bg-olive'
@@ -34,13 +10,85 @@ function avatarBg(role) {
   return 'bg-faded'
 }
 
+function normalizeForoList(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.publicaciones)) return data.publicaciones
+  if (Array.isArray(data?.data)) return data.data
+  return []
+}
+
+function mapPost(raw) {
+  const repliesRaw = raw.respuestas ?? []
+  const replies = Array.isArray(repliesRaw)
+    ? repliesRaw.map((rep) => ({
+        name: rep.name ?? rep.nombre ?? rep.autor_nombre ?? 'Usuario',
+        text: rep.text ?? rep.contenido ?? rep.texto ?? '',
+      }))
+    : []
+
+  return {
+    id: raw.id,
+    name: raw.autor_nombre ?? raw.nombre ?? 'Usuario',
+    handle: `@${raw.autor_username ?? raw.autor_id ?? ''}`,
+    time: raw.created_at ?? '',
+    text: raw.contenido ?? raw.texto ?? '',
+    replies,
+  }
+}
+
+function normalizeMembersList(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.miembros)) return data.miembros
+  if (Array.isArray(data?.data)) return data.data
+  return []
+}
+
+function mapMember(raw) {
+  return {
+    id: raw.id,
+    name: raw.nombre ?? raw.name ?? '',
+    role: raw.rol ?? raw.role ?? 'estudiante',
+    info: (raw.carrera ?? '') + (raw.semestre ? ` · ${raw.semestre}vo` : ''),
+    mentora_id: raw.mentora_id ?? null,
+    usuario_id: raw.usuario_id ?? raw.id,
+  }
+}
+
+function normalizeRecursosList(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.recursos)) return data.recursos
+  if (Array.isArray(data?.data)) return data.data
+  return []
+}
+
+function mapRecurso(raw) {
+  const tipo = (raw.tipo ?? 'PDF').toString().toUpperCase()
+  return {
+    id: raw.id,
+    nombre: raw.nombre ?? raw.titulo ?? '',
+    tipo,
+    autor: raw.autor_nombre ?? raw.subido_por ?? '',
+    fecha: raw.created_at ?? '',
+    url: raw.url ?? raw.archivo_url ?? null,
+    destacado: raw.destacado ?? false,
+  }
+}
+
 export default function ComunidadDetalle() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [tab, setTab] = useState('foro')
   const [roleFilter, setRoleFilter] = useState('todos')
+
+  const [posts, setPosts] = useState([])
+  const [members, setMembers] = useState([])
+  const [recursos, setRecursos] = useState([])
+  const [postText, setPostText] = useState('')
+  const [publishing, setPublishing] = useState(false)
+  const [resourceFilter, setResourceFilter] = useState('Todos')
 
   useEffect(() => {
     let cancelled = false
@@ -63,11 +111,98 @@ export default function ComunidadDetalle() {
     }
   }, [id])
 
+  useEffect(() => {
+    if (!id) return
+    let cancelled = false
+
+    async function loadTab() {
+      if (tab === 'foro') {
+        try {
+          const { data } = await api.get(`/api/comunidades/${id}/foro`)
+          if (!cancelled) setPosts(normalizeForoList(data).map(mapPost))
+        } catch {
+          if (!cancelled) setPosts([])
+        }
+        return
+      }
+      if (tab === 'miembros') {
+        try {
+          const { data } = await api.get(`/api/grupos/${id}/miembros`)
+          if (!cancelled) setMembers(normalizeMembersList(data).map(mapMember))
+        } catch {
+          if (!cancelled) setMembers([])
+        }
+        return
+      }
+      if (tab === 'recursos') {
+        try {
+          const { data } = await api.get(`/api/grupos/${id}/recursos`)
+          if (!cancelled) setRecursos(normalizeRecursosList(data).map(mapRecurso))
+        } catch {
+          if (!cancelled) setRecursos([])
+        }
+        return
+      }
+      if (tab === 'calendario') {
+        try {
+          await api.get(`/api/grupos/${id}/sesiones`)
+        } catch {
+          /* tab se mantiene visual como está */
+        }
+      }
+    }
+
+    loadTab()
+    return () => {
+      cancelled = true
+    }
+  }, [tab, id])
+
   const nombre = data?.nombre ?? data?.name ?? 'Cálculo III – Grupo A'
   const materia = data?.materia ?? data?.subject ?? ''
 
   const membersShown =
-    roleFilter === 'todos' ? MOCK_MEMBERS : MOCK_MEMBERS.filter((m) => m.role === roleFilter)
+    roleFilter === 'todos' ? members : members.filter((m) => m.role === roleFilter)
+
+  const destacados = recursos.filter((r) => r.destacado)
+  const compartidosBase = recursos.filter((r) => !r.destacado)
+  const compartidosFiltered = compartidosBase.filter((r) => {
+    if (resourceFilter === 'Todos') return true
+    if (resourceFilter === 'PDF') return r.tipo === 'PDF'
+    if (resourceFilter === 'Presentaciones') return r.tipo === 'PPT' || r.tipo === 'PPTX'
+    if (resourceFilter === 'Documentos') return r.tipo === 'DOC' || r.tipo === 'DOCX'
+    if (resourceFilter === 'De la mentora') return r.destacado === true
+    return true
+  })
+
+  async function handlePublicar() {
+    const text = postText.trim()
+    if (!text || !id) return
+    setPublishing(true)
+    try {
+      await api.post(`/api/comunidades/${id}/foro`, { contenido: text })
+      setPostText('')
+      const { data } = await api.get(`/api/comunidades/${id}/foro`)
+      setPosts(normalizeForoList(data).map(mapPost))
+    } catch (e) {
+      window.alert(getErrorMessage(e))
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  async function handleCrearEvento() {
+    if (!id) return
+    try {
+      await api.post(`/api/grupos/${id}/sesiones`, {
+        titulo: 'Nuevo evento',
+        fecha: new Date().toISOString(),
+      })
+      window.alert('Evento creado correctamente.')
+    } catch (e) {
+      window.alert(getErrorMessage(e))
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8 lg:max-w-3xl">
@@ -124,11 +259,15 @@ export default function ComunidadDetalle() {
                   rows={3}
                   placeholder="¿Qué quieres compartir con el grupo?"
                   className="w-full resize-none border-0 bg-transparent text-sm text-ink outline-none placeholder:text-faded"
+                  value={postText}
+                  onChange={(e) => setPostText(e.target.value)}
                 />
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-sm text-faded">📎 Adjuntar archivo</span>
                   <button
                     type="button"
+                    onClick={handlePublicar}
+                    disabled={publishing || !postText.trim()}
                     className="rounded-xl bg-rose px-4 py-2 text-xs font-medium text-ink shadow-sm hover:bg-rose-dark"
                   >
                     Publicar
@@ -136,7 +275,13 @@ export default function ComunidadDetalle() {
                 </div>
               </div>
 
-              {MOCK_POSTS.map((p) => (
+              {posts.length === 0 ? (
+                <p className="rounded-2xl border border-line bg-warm p-4 text-center text-sm text-stone shadow-card">
+                  No hay publicaciones aún
+                </p>
+              ) : null}
+
+              {posts.map((p) => (
                 <article key={p.id} className="rounded-2xl border border-line bg-warm p-4 shadow-card">
                   <div className="flex gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose text-xs font-semibold text-ink">
@@ -159,8 +304,8 @@ export default function ComunidadDetalle() {
                       </div>
                       {p.replies?.length ? (
                         <div className="ml-2 mt-3 border-l-2 border-line pl-3">
-                          {p.replies.map((r) => (
-                            <p key={r.text} className="text-sm text-stone">
+                          {p.replies.map((r, idx) => (
+                            <p key={`${r.text}-${idx}`} className="text-sm text-stone">
                               <span className="font-medium text-ink">{r.name}: </span>
                               {r.text}
                             </p>
@@ -204,6 +349,7 @@ export default function ComunidadDetalle() {
               </div>
               <button
                 type="button"
+                onClick={handleCrearEvento}
                 className="mt-6 w-full rounded-xl bg-rose px-5 py-2 text-sm font-medium text-ink shadow-sm hover:bg-rose-dark"
               >
                 CREAR EVENTO
@@ -232,7 +378,7 @@ export default function ComunidadDetalle() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {membersShown.map((m) => (
                   <div
-                    key={m.name}
+                    key={m.id}
                     className="rounded-2xl border border-line bg-warm p-4 text-center shadow-card transition-all hover:border-rose hover:shadow-card-hover"
                   >
                     <div
@@ -250,13 +396,19 @@ export default function ComunidadDetalle() {
                     <div className="mt-3 flex flex-col gap-2">
                       <button
                         type="button"
+                        onClick={() =>
+                          m.mentora_id != null
+                            ? navigate(`/mentoria/${m.mentora_id}`)
+                            : navigate('/perfil')
+                        }
                         className="rounded-xl border border-rose bg-white py-2 text-xs font-medium text-rose-dark hover:bg-rose-light"
                       >
                         Ver perfil
                       </button>
-                      {m.role === 'mentora' ? (
+                      {m.role === 'mentora' && m.mentora_id != null ? (
                         <button
                           type="button"
+                          onClick={() => navigate(`/mentoria/${m.mentora_id}`)}
                           className="rounded-xl bg-olive py-2 text-xs font-medium text-white hover:bg-olive-deep"
                         >
                           Solicitar tutoría
@@ -273,37 +425,68 @@ export default function ComunidadDetalle() {
             <div className="space-y-6">
               <section>
                 <p className="mb-2 text-xs font-semibold text-olive">🌟 Destacados por la mentora</p>
-                <div className="rounded-xl border border-olive-light bg-mint p-3 text-sm text-ink">
-                  Guía rápida — series y sucesiones (PDF)
-                </div>
+                {destacados.length === 0 ? (
+                  <div className="rounded-xl border border-olive-light bg-mint p-3 text-sm text-stone">Sin recursos destacados</div>
+                ) : (
+                  <div className="space-y-2">
+                    {destacados.map((r) => (
+                      <div key={r.id} className="rounded-xl border border-olive-light bg-mint p-3 text-sm text-ink">
+                        {r.nombre} ({r.tipo})
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
               <section>
                 <p className="mb-2 text-xs font-semibold text-stone">Compartidos por el grupo</p>
                 <ul className="space-y-2">
-                  <li className="flex items-center gap-3 rounded-xl border border-line bg-warm p-3">
-                    <span className="rounded-lg bg-blush px-2 py-2 text-xs font-bold text-rose-dark">PDF</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-ink">Parcial 2024 resuelto.pdf</p>
-                      <p className="text-xs text-faded">Ana · 12 Abr · 1.2 MB · 34 descargas</p>
-                    </div>
-                    <div className="flex gap-1">
-                      <button type="button" className="text-xs text-rose-dark hover:underline">
-                        Ver
-                      </button>
-                      <button type="button" className="text-xs text-rose-dark hover:underline">
-                        Descargar
-                      </button>
-                    </div>
-                  </li>
+                  {compartidosFiltered.length === 0 ? (
+                    <li className="rounded-xl border border-line bg-warm p-3 text-center text-sm text-stone">
+                      Sin recursos compartidos
+                    </li>
+                  ) : (
+                    compartidosFiltered.map((r) => (
+                      <li key={r.id} className="flex items-center gap-3 rounded-xl border border-line bg-warm p-3">
+                        <span className="rounded-lg bg-blush px-2 py-2 text-xs font-bold text-rose-dark">{r.tipo}</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-ink">{r.nombre}</p>
+                          <p className="text-xs text-faded">
+                            {r.autor} · {r.fecha}
+                          </p>
+                        </div>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            className="text-xs text-rose-dark hover:underline"
+                            onClick={() => {
+                              if (r.url) window.open(r.url, '_blank', 'noopener,noreferrer')
+                            }}
+                          >
+                            Ver
+                          </button>
+                          <button
+                            type="button"
+                            className="text-xs text-rose-dark hover:underline"
+                            onClick={() => {
+                              if (r.url) window.open(r.url, '_blank', 'noopener,noreferrer')
+                            }}
+                          >
+                            Descargar
+                          </button>
+                        </div>
+                      </li>
+                    ))
+                  )}
                 </ul>
               </section>
               <div className="flex flex-wrap gap-2">
-                {['Todos', 'PDF', 'Presentaciones', 'Documentos', 'De la mentora'].map((c, i) => (
+                {['Todos', 'PDF', 'Presentaciones', 'Documentos', 'De la mentora'].map((c) => (
                   <button
                     key={c}
                     type="button"
+                    onClick={() => setResourceFilter(c)}
                     className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      i === 0 ? 'bg-ink text-white' : 'border border-rose bg-warm text-stone'
+                      resourceFilter === c ? 'bg-ink text-white' : 'border border-rose bg-warm text-stone'
                     }`}
                   >
                     {c}
