@@ -9,13 +9,6 @@ const FLORAL_BG = `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox
 const field =
   'w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose'
 
-const ROLES = [
-  { value: 'estudiante', label: '🎓 Estudiante' },
-  { value: 'mentora', label: '🌟 Mentora' },
-  { value: 'moderador', label: '🛡️ Moderador' },
-  { value: 'admin', label: '⚙️ Admin' },
-]
-
 export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -28,7 +21,6 @@ export default function Login() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [rolSeleccionado, setRolSeleccionado] = useState('estudiante')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -42,7 +34,7 @@ export default function Login() {
     }
     setLoading(true)
     try {
-      await login(email.trim(), password, rolSeleccionado)
+      await login(email.trim(), password)
       const to = location.state?.from && location.state.from !== '/login' ? location.state.from : '/home'
       navigate(to, { replace: true })
     } catch (err) {
@@ -77,26 +69,6 @@ export default function Login() {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit} noValidate>
-            <div className="flex flex-wrap gap-2">
-              {ROLES.map(({ value, label }) => {
-                const active = rolSeleccionado === value
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setRolSeleccionado(value)}
-                    className={
-                      active
-                        ? 'rounded-full bg-rose px-4 py-1.5 text-xs font-medium text-white shadow-sm'
-                        : 'rounded-full border border-line bg-warm px-4 py-1.5 text-xs font-medium text-muted'
-                    }
-                  >
-                    {label}
-                  </button>
-                )
-              })}
-            </div>
-
             <div>
               <label htmlFor={emailId} className="text-sm font-medium text-ink">
                 Email
