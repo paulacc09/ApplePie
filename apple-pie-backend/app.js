@@ -17,6 +17,8 @@ const foroRoutes = require('./src/routes/foro');
 
 const app = express();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 app.set('trust proxy', 1);
 app.use(helmet());
 
@@ -28,9 +30,10 @@ const limiterGeneral = rateLimit({
   message: { error: 'Demasiadas peticiones, intenta en 15 minutos' },
 });
 
+// Auth: producción 10/15min; desarrollo/staging más permisivo para pruebas de login (sigue limitado por limiterGeneral).
 const limiterAuth = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: isProduction ? 10 : 500,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Demasiados intentos, intenta en 15 minutos' },

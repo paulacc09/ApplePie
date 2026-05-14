@@ -12,8 +12,7 @@ export default function AgendaMentora() {
   const [anio, setAnio] = useState(() => new Date().getFullYear())
   const [confirmandoId, setConfirmandoId] = useState(null)
 
-  const cargarSesiones = useCallback(async (options) => {
-    const silent = options?.silent === true
+  const cargarSesiones = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
       setCargando(true)
       setError(null)
@@ -83,7 +82,8 @@ export default function AgendaMentora() {
     return sesiones
       .filter((s) => {
         if (!s.fecha_hora) return false
-        if (s.estado === 'completada' || s.estado === 'cancelada') return false
+        if (String(s.estado).toLowerCase() === 'completada' || String(s.estado).toLowerCase() === 'cancelada')
+          return false
         const d = new Date(s.fecha_hora)
         return d >= lunes && d <= domingo
       })
@@ -93,7 +93,7 @@ export default function AgendaMentora() {
   const historial = useMemo(
     () =>
       sesiones
-        .filter((s) => s.estado === 'completada')
+        .filter((s) => String(s.estado).toLowerCase() === 'completada')
         .sort((a, b) => new Date(b.fecha_hora) - new Date(a.fecha_hora)),
     [sesiones],
   )
@@ -313,7 +313,11 @@ export default function AgendaMentora() {
                                     : 'rounded-lg bg-rose px-3 py-1.5 text-xs font-medium text-ink hover:bg-rose-dark disabled:cursor-not-allowed disabled:opacity-50'
                                 }
                               >
-                                {yaConfirmada ? 'Confirmada ✓' : 'Confirmar'}
+                                {yaConfirmada
+                                  ? 'Confirmada ✓'
+                                  : confirmandoId === s.id
+                                    ? 'Confirmando...'
+                                    : 'Confirmar'}
                               </button>
                               <button
                                 type="button"

@@ -11,6 +11,7 @@ const field =
 
 const ROLES = [
   { value: 'estudiante', label: '🎓 Estudiante' },
+  { value: 'mentora', label: '🌟 Mentora' },
   { value: 'moderador', label: '🛡️ Moderador' },
   { value: 'admin', label: '⚙️ Admin' },
 ]
