@@ -56,7 +56,7 @@ Variables: crear `.env` con `VITE_API_BASE_URL` apuntando al backend (ej. `http:
 | `/mentoria` | `Mentoria.jsx` | Listado mentoras |
 | `/mentoria/:id` | `PerfilMentora.jsx` | Perfil mentora + modal pago |
 | `/perfil` | `MiPerfil.jsx` | Perfil usuaria (parte mock) |
-| `/agenda` | `MiAgenda.jsx` | Agenda usuaria |
+| `/agenda` | `MiAgenda.jsx` | Calendario mensual + lista de sesiones vía `GET /api/sesiones/estudiante`; “CREAR EVENTO” es placeholder (sin `POST` aún) |
 | `/mentora/dashboard` | `DashboardMentora.jsx` | KPI y resumen mentora |
 | `/mentora/agenda` | `AgendaMentora.jsx` | Calendario + historial + semana |
 | `/mentora/materiales` | `MaterialesMentora.jsx` | Materiales |
@@ -69,12 +69,12 @@ Variables: crear `.env` con `VITE_API_BASE_URL` apuntando al backend (ej. `http:
 | `/admin/pagos` | `AdminPagos.jsx` | Pagos/planes (contratos `/api/admin/...`) |
 | `/admin/reportes` | `AdminReportes.jsx` | Métricas y export |
 
-`Sidebar` y `BottomNav` enlazan según rol (`mentora`, `moderadora`, etc.).
+`Sidebar` muestra el bloque **Mentora** (`/mentora/...`) cuando `user.rol === 'mentora'`. `BottomNav` es común a todas las usuarias autenticadas.
 
 ## Autenticación
 
-- **Login**: email, contraseña y selector de rol (`estudiante` | `moderador` | `admin`) enviados en `POST /api/auth/login` vía `AuthContext.login`.
-- Token JWT guardado; cabecera `Authorization: Bearer …` en axios.
+- **Login** (`Login.jsx`): solo email y contraseña. `AuthContext.login(email, password)` envía `POST /api/auth/login` con body `{ email, password }` (sin selector de rol; el rol viene del usuario en BD y va en el JWT).
+- Token JWT en `localStorage` (`apple-pie-token`); usuario en `apple-pie-user`. Axios añade `Authorization: Bearer …` en las peticiones.
 
 ## Convenciones de UI
 
@@ -84,7 +84,9 @@ Variables: crear `.env` con `VITE_API_BASE_URL` apuntando al backend (ej. `http:
 
 ## Integración con el backend
 
-El front asume una API REST bajo `VITE_API_BASE_URL`. Algunas pantallas de **administración** consumen rutas `/api/admin/...` pensadas para un backend extendido: si no están implementadas, la UI puede quedar vacía o con error controlado.
+El front asume una API REST bajo `VITE_API_BASE_URL` (en **Vercel** definir esta variable con la URL pública del API, p. ej. Railway). El backend debe permitir CORS desde ese origen (ver README del backend: `FRONTEND_URL`, preflight `OPTIONS`).
+
+Algunas pantallas de **administración** consumen rutas `/api/admin/...` pensadas para un backend extendido: si no están implementadas, la UI puede quedar vacía o con error controlado.
 
 Rutas de **comunidad** que aún pueden usar prefijos legacy tipo `/api/grupos/:id/...` conviven con `/api/comunidades/...` según evolución del API.
 
@@ -96,6 +98,6 @@ No existe hoy una página dedicada tipo `Pagos.jsx` para el historial de egresos
 
 `GET /api/pagos` / historial de pagos del usuario refleja **pagos realizados por la usuaria** (egresos). Para un KPI de **ingresos como mentora** haría falta un endpoint dedicado (p. ej. filtrar pagos ligados a sesiones donde la mentora es la receptora). Hasta entonces el KPI “Ingresos este mes” en el dashboard de mentora puede mostrarse como `—` (comentario alineado con el producto).
 
------
+---
 
-Proyecto: **Apple Pie** — Universidad de Ibagué (UI/UX). ---------
+Proyecto: **Apple Pie** — Universidad de Ibagué (UI/UX).

@@ -26,7 +26,7 @@ npm start       # node server.js
 
 **Punto de entrada:** `server.js` crea el servidor HTTP, inicializa Socket.io y escucha el puerto (por defecto **3000**).
 
-**Aplicación Express:** `app.js` — middlewares globales, rate limits, montaje de routers bajo `/api/...`, manejador de errores 500.
+**Aplicación Express:** `app.js` — Helmet, rate limits, **CORS** (incluye `OPTIONS` vía `app.options('*', cors(corsOptions))`), `express.json`, montaje de routers bajo `/api/...`, manejador de errores 500.
 
 ## Variables de entorno
 
@@ -34,9 +34,10 @@ npm start       # node server.js
 |----------|-----|
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` | MySQL |
 | `JWT_SECRET` | Firma de tokens |
+| `NODE_ENV` | Si vale `production`, el rate limit de `/api/auth` es más estricto (ver sección Seguridad). |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Imágenes |
 | `BREVO_API_KEY`, `BREVO_FROM_EMAIL` | Correo |
-| `CLIENT_URL` / `FRONTEND_URL` | CORS y enlaces en emails (`app.js` usa `FRONTEND_URL` con fallback `*`) |
+| `CLIENT_URL` / `FRONTEND_URL` | **CORS:** `origin` (usar la URL exacta del front en producción, p. ej. Vercel). Con `credentials: true` no debe usarse `*` en el navegador: definir `FRONTEND_URL`. Cabeceras permitidas: `Content-Type`, `Authorization`. Métodos incluyen `OPTIONS` (preflight). |
 
 ## Estructura de carpetas (`src/`)
 
@@ -76,7 +77,7 @@ Prefijo común: raíz del servidor (ej. `http://localhost:3000`).
 ### Auth
 
 - `POST /api/auth/register`
-- `POST /api/auth/login` — body típico: `email`, `password` (el front puede enviar también `rol` para flujos futuros)
+- `POST /api/auth/login` — body: `email`, `password`. Respuesta: `token` + `usuario` (el `rol` viene de la base de datos y se incluye en el JWT; el login no valida un rol enviado en el body).
 - `POST /api/auth/mfa/generar` — admin + token
 - `POST /api/auth/mfa/verificar` — admin + token
 - `POST /api/auth/mfa/validar`
@@ -166,13 +167,14 @@ Registro de usuario, unirse a comunidad, mensajes y notificaciones — ver `src/
 
 ## Seguridad
 
-- Helmet, rate limit global y específico en `/api/auth` y subidas
-- JWT con caducidad configurada en auth
-- Roles en BD alineados con front: `estudiante`, `mentora`, `moderadora`, `admin` (y variantes según migraciones)
+- **Helmet** y **rate limiting:** límite global (100 req / 15 min por IP) + límite extra en `/api/auth` (**10** / 15 min si `NODE_ENV === 'production'`, **500** / 15 min en otro caso) + límites en subidas (`/api/recursos`, `/api/perfil/foto`).
+- **CORS** (`app.js`): objeto `corsOptions` con `credentials: true`, métodos que incluyen `OPTIONS`, y `app.options('*', cors(corsOptions))` para responder preflight (evita `OPTIONS 404` desde orígenes como Vercel).
+- JWT con caducidad configurada en auth; contraseñas con **bcrypt** en registro y `bcrypt.compare` en login.
+- Roles en BD alineados con el front: `estudiante`, `mentora`, `moderadora`, `admin` (según migraciones / datos reales).
 
 ## Deploy
 
-Producción de referencia: **Railway** — URL pública usada como fallback en el front si no hay `VITE_API_BASE_URL`.
+Producción de referencia: **Railway** — URL pública usada como fallback en el front si no hay `VITE_API_BASE_URL`. En deploy, alinear **`FRONTEND_URL`** (backend) con el dominio del front (Vercel) para CORS y cookies/credenciales si se usan en el futuro.
 
 ---
 
