@@ -98,4 +98,4 @@ No existe hoy una página dedicada tipo `Pagos.jsx` para el historial de egresos
 
 -----
 
-Proyecto: **Apple Pie** — Universidad de Ibagué (UI/UX). -----
+Proyecto: **Apple Pie** — Universidad de Ibagué (UI/UX). ---------
