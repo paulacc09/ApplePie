@@ -1,5 +1,5 @@
 const pool = require('../config/db');
-const { cloudinary } = require('../utils/cloudinary');
+const { cloudinary, subirACloudinary } = require('../utils/cloudinary');
 
 const subirRecurso = async (req, res) => {
   try {
@@ -17,8 +17,9 @@ const subirRecurso = async (req, res) => {
     } = req.body;
 
     const subido_por = req.usuario.id;
-    const archivo_url = req.file.path;
-    const archivo_public_id = req.file.filename;
+    const resultado = await subirACloudinary(req.file.buffer, req.file.originalname);
+    const archivo_url = resultado.secure_url;
+    const archivo_public_id = resultado.public_id;
     const tamano_kb = Math.round(req.file.size / 1024);
 
     const [result] = await pool.query(
