@@ -5,6 +5,7 @@ const authRoutes = require('./src/routes/auth');
 const comunidadesRoutes = require('./src/routes/comunidades');
 const recursosRoutes = require('./src/routes/recursos');
 const mentorasRoutes = require('./src/routes/mentoras');
+const sesionesRoutes = require('./src/routes/sesiones');
 const foroRoutes = require('./src/routes/foro');
 
 const app = express();
@@ -27,6 +28,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/comunidades', comunidadesRoutes);
 app.use('/api/recursos', recursosRoutes);
 app.use('/api/mentoras', mentorasRoutes);
+app.use('/api/sesiones', sesionesRoutes);
 app.use('/api', foroRoutes);
 
 app.use((err, req, res, next) => {
