@@ -96,6 +96,6 @@ No existe hoy una página dedicada tipo `Pagos.jsx` para el historial de egresos
 
 `GET /api/pagos` / historial de pagos del usuario refleja **pagos realizados por la usuaria** (egresos). Para un KPI de **ingresos como mentora** haría falta un endpoint dedicado (p. ej. filtrar pagos ligados a sesiones donde la mentora es la receptora). Hasta entonces el KPI “Ingresos este mes” en el dashboard de mentora puede mostrarse como `—` (comentario alineado con el producto).
 
----
+-----
 
 Proyecto: **Apple Pie** — Universidad de Ibagué (UI/UX).
