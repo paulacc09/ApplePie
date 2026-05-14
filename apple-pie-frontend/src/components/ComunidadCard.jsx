@@ -14,7 +14,7 @@ function careerEmoji(materia) {
   return EMOJIS[h % EMOJIS.length]
 }
 
-export default function ComunidadCard({ id, nombre, materia, descripcion, integrantes, semestre }) {
+export default function ComunidadCard({ id, nombre, materia, descripcion, integrantes, semestre, onJoined }) {
   const navigate = useNavigate()
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
@@ -25,6 +25,7 @@ export default function ComunidadCard({ id, nombre, materia, descripcion, integr
     setJoining(true)
     try {
       await api.post(`/api/comunidades/${id}/unirse`)
+      await onJoined?.()
     } catch (e) {
       setJoinError(getErrorMessage(e))
     } finally {

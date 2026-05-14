@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
 import { api } from '../api/axios.js'
 import { getErrorMessage } from '../lib/apiError.js'
 import ComunidadCard from '../components/ComunidadCard.jsx'
@@ -15,15 +15,18 @@ function mapComunidad(raw, index) {
   return {
     id: String(id),
     nombre: raw.nombre ?? raw.name ?? 'Sin nombre',
-    materia: raw.materia ?? raw.subject ?? 'General',
+    materia: raw.materia ?? raw.asignatura ?? raw.subject ?? 'General',
     descripcion: raw.descripcion ?? raw.description ?? '',
-    integrantes: raw.integrantes ?? raw.membersCount ?? raw.miembros ?? 0,
+    integrantes: raw.integrantes ?? raw.total_miembros ?? raw.membersCount ?? raw.miembros ?? 0,
     semestre: raw.semestre ?? raw.semester ?? '—',
   }
 }
 
 const selectClass =
   'shrink-0 rounded-xl border border-rose bg-white px-3 py-2 text-sm text-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-rose'
+
+const field =
+  'w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose'
 
 export default function Comunidades() {
   const [list, setList] = useState([])
@@ -35,25 +38,35 @@ export default function Comunidades() {
   const [filterAct, setFilterAct] = useState('todas')
   const [showModal, setShowModal] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      setError('')
-      try {
-        const { data } = await api.get('/api/comunidades')
-        if (!cancelled) setList(normalizeList(data).map(mapComunidad))
-      } catch (e) {
-        if (!cancelled) setError(getErrorMessage(e))
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => {
-      cancelled = true
+  const nombreModalId = useId()
+  const descModalId = useId()
+  const materiaModalId = useId()
+  const semModalId = useId()
+  const modalErrorId = useId()
+
+  const [mcNombre, setMcNombre] = useState('')
+  const [mcDescripcion, setMcDescripcion] = useState('')
+  const [mcMateria, setMcMateria] = useState('')
+  const [mcSemestre, setMcSemestre] = useState('1')
+  const [modalLoading, setModalLoading] = useState(false)
+  const [modalError, setModalError] = useState('')
+
+  const loadComunidades = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const { data } = await api.get('/api/comunidades')
+      setList(normalizeList(data).map(mapComunidad))
+    } catch (e) {
+      setError(getErrorMessage(e))
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    loadComunidades()
+  }, [loadComunidades])
 
   const materias = useMemo(() => {
     const s = new Set(list.map((c) => c.materia).filter(Boolean))
@@ -73,13 +86,51 @@ export default function Comunidades() {
     })
   }, [list, query, filterAsig, filterSem, filterAct])
 
+  function openModal() {
+    setModalError('')
+    setShowModal(true)
+  }
+
+  function closeModal() {
+    setShowModal(false)
+    setModalError('')
+    setMcNombre('')
+    setMcDescripcion('')
+    setMcMateria('')
+    setMcSemestre('1')
+  }
+
+  async function handleCrearComunidad(e) {
+    e.preventDefault()
+    setModalError('')
+    if (!mcNombre.trim() || !mcMateria.trim()) {
+      setModalError('Nombre y materia son obligatorios.')
+      return
+    }
+    setModalLoading(true)
+    try {
+      await api.post('/api/comunidades', {
+        nombre: mcNombre.trim(),
+        descripcion: mcDescripcion.trim(),
+        materia: mcMateria.trim(),
+        semestre: Number(mcSemestre),
+      })
+      closeModal()
+      await loadComunidades()
+    } catch (err) {
+      setModalError(getErrorMessage(err))
+    } finally {
+      setModalLoading(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="font-display text-2xl text-ink">Comunidades</h1>
         <button
           type="button"
-          onClick={() => setShowModal(true)}
+          onClick={openModal}
           className="inline-flex items-center gap-1 rounded-xl bg-rose px-4 py-2 text-sm font-medium text-ink shadow-sm transition-all duration-200 hover:bg-rose-dark hover:shadow-md"
         >
           ＋ Crear
@@ -137,10 +188,13 @@ export default function Comunidades() {
       />
 
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-52 animate-pulse rounded-2xl bg-cream-2" aria-hidden="true" />
-          ))}
+        <div className="flex min-h-[12rem] flex-col items-center justify-center gap-3 rounded-2xl border border-line bg-warm py-12">
+          <div
+            className="h-10 w-10 animate-spin rounded-full border-2 border-rose-light border-t-rose-dark"
+            role="status"
+            aria-label="Cargando"
+          />
+          <p className="text-sm text-stone">Cargando comunidades…</p>
         </div>
       ) : null}
 
@@ -165,6 +219,7 @@ export default function Comunidades() {
               descripcion={c.descripcion}
               integrantes={c.integrantes}
               semestre={c.semestre}
+              onJoined={loadComunidades}
             />
           ))}
         </div>
@@ -181,16 +236,88 @@ export default function Comunidades() {
             <h2 id="modal-title" className="font-display text-lg text-ink">
               Crear comunidad
             </h2>
-            <p className="mt-2 text-sm text-stone">
-              Pronto podrás crear grupos desde aquí. Esta ventana es solo visual por ahora.
-            </p>
-            <button
-              type="button"
-              className="mt-6 w-full rounded-xl bg-rose px-5 py-2.5 font-medium text-ink shadow-sm transition-all duration-200 hover:bg-rose-dark"
-              onClick={() => setShowModal(false)}
-            >
-              Cerrar
-            </button>
+            <form className="mt-4 space-y-4" onSubmit={handleCrearComunidad} noValidate>
+              <div>
+                <label htmlFor={nombreModalId} className="text-sm font-medium text-ink">
+                  Nombre
+                </label>
+                <input
+                  id={nombreModalId}
+                  type="text"
+                  required
+                  value={mcNombre}
+                  onChange={(e) => setMcNombre(e.target.value)}
+                  className={`${field} mt-1`}
+                  aria-invalid={Boolean(modalError)}
+                  aria-describedby={modalError ? modalErrorId : undefined}
+                />
+              </div>
+              <div>
+                <label htmlFor={descModalId} className="text-sm font-medium text-ink">
+                  Descripción
+                </label>
+                <textarea
+                  id={descModalId}
+                  rows={3}
+                  value={mcDescripcion}
+                  onChange={(e) => setMcDescripcion(e.target.value)}
+                  className={`${field} mt-1 resize-y`}
+                />
+              </div>
+              <div>
+                <label htmlFor={materiaModalId} className="text-sm font-medium text-ink">
+                  Materia
+                </label>
+                <input
+                  id={materiaModalId}
+                  type="text"
+                  required
+                  value={mcMateria}
+                  onChange={(e) => setMcMateria(e.target.value)}
+                  className={`${field} mt-1`}
+                />
+              </div>
+              <div>
+                <label htmlFor={semModalId} className="text-sm font-medium text-ink">
+                  Semestre
+                </label>
+                <select
+                  id={semModalId}
+                  required
+                  value={mcSemestre}
+                  onChange={(e) => setMcSemestre(e.target.value)}
+                  className={`${field} mt-1 appearance-none bg-white`}
+                >
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map((s) => (
+                    <option key={s} value={String(s)}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {modalError ? (
+                <p id={modalErrorId} className="text-sm text-rose-dark" role="alert">
+                  {modalError}
+                </p>
+              ) : null}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  className="flex-1 rounded-xl border border-rose bg-white py-2.5 text-sm font-medium text-rose-dark transition-all duration-200 hover:bg-rose-light"
+                  onClick={closeModal}
+                  disabled={modalLoading}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={modalLoading}
+                  className="flex-1 rounded-xl bg-rose px-5 py-2.5 text-sm font-medium text-ink shadow-sm transition-all duration-200 hover:bg-rose-dark hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {modalLoading ? 'Creando…' : 'Crear'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}

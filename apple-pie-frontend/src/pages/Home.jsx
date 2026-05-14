@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
 const mockComunidades = [
@@ -14,6 +14,7 @@ const mockRecursos = [
 ]
 
 export default function Home() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const nombre = user?.nombre ?? user?.name ?? 'estudiante'
 
@@ -60,6 +61,7 @@ export default function Home() {
           ))}
           <button
             type="button"
+            onClick={() => navigate('/comunidades')}
             className="flex min-w-[160px] shrink-0 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-rose bg-warm p-4 text-center shadow-card"
           >
             <span className="text-2xl text-rose" aria-hidden="true">
