@@ -55,14 +55,17 @@ const crearComunidad = async (req, res) => {
     const {
       nombre,
       asignatura,
+      materia,
       semestre,
       descripcion,
-      tipo,
-      modalidad,
-      horario,
-      capacidad_max,
+      tipo = 'estudio',
+      modalidad = 'mixta',
+      horario = '',
+      capacidad_max = 30,
       imagen_portada = null,
     } = req.body;
+
+    const asignaturaFinal = asignatura ?? materia;
 
     const creadora_id = req.usuario.id;
 
@@ -72,7 +75,7 @@ const crearComunidad = async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       [
         nombre,
-        asignatura,
+        asignaturaFinal,
         semestre,
         descripcion,
         tipo,
