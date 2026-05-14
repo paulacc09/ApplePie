@@ -9,12 +9,22 @@ const subirRecurso = async (req, res) => {
 
     const {
       nombre,
+      titulo,
       asignatura,
       semestre,
       tipo,
-      visibilidad = 'publica',
+      visibilidad,
+      acceso,
       comunidad_id = null,
     } = req.body;
+
+    const nombreFinal = nombre || titulo;
+    const visibilidadFinal =
+      visibilidad !== undefined && visibilidad !== ''
+        ? visibilidad
+        : acceso === 'miembros'
+          ? 'privada'
+          : 'publica';
 
     const subido_por = req.usuario.id;
     const resultado = await subirACloudinary(req.file.buffer, req.file.originalname);
@@ -28,7 +38,7 @@ const subirRecurso = async (req, res) => {
          tamano_kb, subido_por, comunidad_id, visibilidad, descargas, activo)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1)`,
       [
-        nombre,
+        nombreFinal,
         asignatura,
         semestre,
         tipo,
@@ -37,7 +47,7 @@ const subirRecurso = async (req, res) => {
         tamano_kb,
         subido_por,
         comunidad_id,
-        visibilidad,
+        visibilidadFinal,
       ]
     );
 

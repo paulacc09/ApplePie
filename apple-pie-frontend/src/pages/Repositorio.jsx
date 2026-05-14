@@ -1,32 +1,23 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import api from '../api/axios.js'
+import { getErrorMessage } from '../lib/apiError.js'
 import ModalSubirRecurso from '../components/ModalSubirRecurso.jsx'
 
 const selectClass =
   'shrink-0 rounded-xl border border-rose bg-white px-3 py-2 text-sm text-ink shadow-sm focus:outline-none focus:ring-2 focus:ring-rose'
 
-const MOCK = [
-  {
-    id: '1',
-    nombre: 'Guía integrales — Parcial 2.pdf',
-    meta: 'Cálculo III · Subido por @maria',
-    tipo: 'PDF',
-    acceso: 'gratis',
-  },
-  {
-    id: '2',
-    nombre: 'Apuntes Álgebra lineal.docx',
-    meta: 'Álgebra · Subido por @laura',
-    tipo: 'DOCX',
-    acceso: 'miembros',
-  },
-  {
-    id: '3',
-    nombre: 'Presentación ondas.pptx',
-    meta: 'Física II · Subido por @camila',
-    tipo: 'PPTX',
-    acceso: 'gratis',
-  },
-]
+function mapRecurso(raw) {
+  const tipoRaw = (raw.tipo ?? 'PDF').toString().toUpperCase()
+  const vis = (raw.visibilidad ?? 'publica').toString().toLowerCase()
+  return {
+    id: String(raw.id ?? ''),
+    nombre: raw.nombre ?? '',
+    meta: [raw.asignatura, raw.semestre ? `Sem. ${raw.semestre}` : null].filter(Boolean).join(' · ') || '—',
+    tipo: tipoRaw.includes('DOC') ? 'DOCX' : tipoRaw.includes('PPT') ? 'PPTX' : tipoRaw.includes('PDF') ? 'PDF' : tipoRaw,
+    acceso: vis === 'publica' ? 'gratis' : 'miembros',
+    url: raw.archivo_url ?? raw.url ?? '',
+  }
+}
 
 function tipoIcon(tipo) {
   if (tipo === 'PDF')
@@ -53,22 +44,38 @@ export default function Repositorio() {
   const [asig, setAsig] = useState('')
   const [sem, setSem] = useState('')
   const [tipoF, setTipoF] = useState('')
+  const [recursos, setRecursos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
 
-  useEffect(() => {
-    const t = window.setTimeout(() => setLoading(false), 600)
-    return () => window.clearTimeout(t)
+  const fetchRecursos = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const { data } = await api.get('/api/recursos')
+      const list = Array.isArray(data) ? data : []
+      setRecursos(list.map(mapRecurso))
+    } catch (e) {
+      setError(getErrorMessage(e))
+      setRecursos([])
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  useEffect(() => {
+    fetchRecursos()
+  }, [fetchRecursos])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return MOCK.filter((r) => {
+    return recursos.filter((r) => {
       const okQ = !q || r.nombre.toLowerCase().includes(q) || r.meta.toLowerCase().includes(q)
       const okT = !tipoF || r.tipo === tipoF
       return okQ && okT
     })
-  }, [query, tipoF])
+  }, [recursos, query, tipoF])
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 pb-8">
@@ -121,14 +128,21 @@ export default function Repositorio() {
       </div>
 
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-2xl bg-cream-2" aria-hidden="true" />
-          ))}
+        <div className="flex min-h-[12rem] flex-col items-center justify-center gap-3 rounded-2xl border border-line bg-warm py-12">
+          <div
+            className="h-10 w-10 animate-spin rounded-full border-2 border-rose-light border-t-rose-dark"
+            role="status"
+            aria-label="Cargando"
+          />
+          <p className="text-sm text-stone">Cargando recursos…</p>
         </div>
       ) : null}
 
-      {!loading && filtered.length === 0 ? (
+      {!loading && error ? (
+        <p className="rounded-xl border border-rose bg-blush px-4 py-3 text-sm text-rose-dark">{error}</p>
+      ) : null}
+
+      {!loading && !error && filtered.length === 0 ? (
         <div className="rounded-2xl border border-line bg-warm py-16 text-center text-stone">
           <p className="text-4xl" aria-hidden="true">
             📭
@@ -137,7 +151,7 @@ export default function Repositorio() {
         </div>
       ) : null}
 
-      {!loading && filtered.length > 0 ? (
+      {!loading && !error && filtered.length > 0 ? (
         <ul className="list-none p-0">
           {filtered.map((r) => (
             <li
@@ -158,7 +172,14 @@ export default function Repositorio() {
                   Solo miembros
                 </span>
               )}
-              <button type="button" className="shrink-0 text-sm font-medium text-rose-dark hover:underline">
+              <button
+                type="button"
+                className="shrink-0 text-sm font-medium text-rose-dark hover:underline"
+                disabled={!r.url}
+                onClick={() => {
+                  if (r.url) window.open(r.url, '_blank', 'noopener,noreferrer')
+                }}
+              >
                 Descargar
               </button>
             </li>
@@ -166,7 +187,11 @@ export default function Repositorio() {
         </ul>
       ) : null}
 
-      <ModalSubirRecurso open={modalOpen} onClose={() => setModalOpen(false)} />
+      <ModalSubirRecurso
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onUploaded={fetchRecursos}
+      />
     </div>
   )
 }

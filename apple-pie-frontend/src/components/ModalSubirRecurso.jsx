@@ -1,21 +1,28 @@
 import { useId, useRef, useState } from 'react'
+import api from '../api/axios.js'
+import { getErrorMessage } from '../lib/apiError.js'
 
 const inputBase =
   'w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose'
 
-export default function ModalSubirRecurso({ open, onClose }) {
+export default function ModalSubirRecurso({ open, onClose, onUploaded }) {
   const fileInputRef = useRef(null)
-  const nombreId = useId()
+  const tituloId = useId()
+  const descId = useId()
   const asigId = useId()
   const semId = useId()
   const tipoId = useId()
+  const accesoId = useId()
 
-  const [nombre, setNombre] = useState('')
+  const [titulo, setTitulo] = useState('')
+  const [descripcion, setDescripcion] = useState('')
   const [asignatura, setAsignatura] = useState('')
   const [semestre, setSemestre] = useState('1')
   const [tipo, setTipo] = useState('PDF')
+  const [acceso, setAcceso] = useState('gratis')
   const [fileName, setFileName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [formError, setFormError] = useState('')
 
   if (!open) return null
 
@@ -41,19 +48,54 @@ export default function ModalSubirRecurso({ open, onClose }) {
     }
   }
 
-  function handleSubmit(e) {
+  function resetForm() {
+    setTitulo('')
+    setDescripcion('')
+    setAsignatura('')
+    setSemestre('1')
+    setTipo('PDF')
+    setAcceso('gratis')
+    setFileName('')
+    setFormError('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault()
+    setFormError('')
+    const file = fileInputRef.current?.files?.[0]
+    if (!file) {
+      setFormError('Selecciona un archivo para subir.')
+      return
+    }
+    if (!titulo.trim() || !asignatura.trim()) {
+      setFormError('Completa título y asignatura.')
+      return
+    }
+
     setLoading(true)
-    window.setTimeout(() => {
-      setLoading(false)
+    try {
+      const formData = new FormData()
+      formData.append('titulo', titulo.trim())
+      formData.append('descripcion', descripcion.trim())
+      formData.append('asignatura', asignatura.trim())
+      formData.append('semestre', semestre)
+      formData.append('tipo', tipo)
+      formData.append('acceso', acceso)
+      formData.append('archivo', file)
+
+      await api.post('/api/recursos', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+
+      resetForm()
+      onUploaded?.()
       onClose()
-      setNombre('')
-      setAsignatura('')
-      setSemestre('1')
-      setTipo('PDF')
-      setFileName('')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }, 900)
+    } catch (err) {
+      setFormError(getErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -78,15 +120,30 @@ export default function ModalSubirRecurso({ open, onClose }) {
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor={nombreId} className="mb-1 block text-sm font-medium text-ink">
-              Nombre del archivo
+            <label htmlFor={tituloId} className="mb-1 block text-sm font-medium text-ink">
+              Título
             </label>
             <input
-              id={nombreId}
+              id={tituloId}
+              name="titulo"
               required
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
+              value={titulo}
+              onChange={(e) => setTitulo(e.target.value)}
+              placeholder="Ej. Guía parcial 2"
               className={inputBase}
+            />
+          </div>
+          <div>
+            <label htmlFor={descId} className="mb-1 block text-sm font-medium text-ink">
+              Descripción
+            </label>
+            <textarea
+              id={descId}
+              name="descripcion"
+              rows={3}
+              value={descripcion}
+              onChange={(e) => setDescripcion(e.target.value)}
+              className={`${inputBase} resize-y`}
             />
           </div>
           <div>
@@ -95,6 +152,7 @@ export default function ModalSubirRecurso({ open, onClose }) {
             </label>
             <input
               id={asigId}
+              name="asignatura"
               required
               value={asignatura}
               onChange={(e) => setAsignatura(e.target.value)}
@@ -107,6 +165,7 @@ export default function ModalSubirRecurso({ open, onClose }) {
             </label>
             <select
               id={semId}
+              name="semestre"
               required
               value={semestre}
               onChange={(e) => setSemestre(e.target.value)}
@@ -125,6 +184,7 @@ export default function ModalSubirRecurso({ open, onClose }) {
             </label>
             <select
               id={tipoId}
+              name="tipo"
               value={tipo}
               onChange={(e) => setTipo(e.target.value)}
               className={inputBase}
@@ -136,8 +196,23 @@ export default function ModalSubirRecurso({ open, onClose }) {
               <option>Otro</option>
             </select>
           </div>
+          <div>
+            <label htmlFor={accesoId} className="mb-1 block text-sm font-medium text-ink">
+              Acceso
+            </label>
+            <select
+              id={accesoId}
+              name="acceso"
+              value={acceso}
+              onChange={(e) => setAcceso(e.target.value)}
+              className={inputBase}
+            >
+              <option value="gratis">Gratis</option>
+              <option value="miembros">Solo miembros</option>
+            </select>
+          </div>
 
-          <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+          <input ref={fileInputRef} type="file" name="archivo" className="hidden" onChange={handleFileChange} />
 
           <button
             type="button"
@@ -153,6 +228,12 @@ export default function ModalSubirRecurso({ open, onClose }) {
             <p className="mt-1 text-xs text-faded">o haz clic para seleccionar</p>
             {fileName ? <p className="mt-2 text-sm font-medium text-olive">{fileName}</p> : null}
           </button>
+
+          {formError ? (
+            <p className="rounded-xl border border-rose bg-blush px-3 py-2 text-sm text-rose-dark" role="alert">
+              {formError}
+            </p>
+          ) : null}
 
           <div className="flex gap-3 pt-2">
             <button
