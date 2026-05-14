@@ -6,6 +6,9 @@ const comunidadesRoutes = require('./src/routes/comunidades');
 const recursosRoutes = require('./src/routes/recursos');
 const mentorasRoutes = require('./src/routes/mentoras');
 const sesionesRoutes = require('./src/routes/sesiones');
+const pagosRoutes = require('./src/routes/pagos');
+const reportesRoutes = require('./src/routes/reportes');
+const adminRoutes = require('./src/routes/admin');
 const foroRoutes = require('./src/routes/foro');
 
 const app = express();
@@ -29,6 +32,9 @@ app.use('/api/comunidades', comunidadesRoutes);
 app.use('/api/recursos', recursosRoutes);
 app.use('/api/mentoras', mentorasRoutes);
 app.use('/api/sesiones', sesionesRoutes);
+app.use('/api/pagos', pagosRoutes);
+app.use('/api/reportes', reportesRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api', foroRoutes);
 
 app.use((err, req, res, next) => {
