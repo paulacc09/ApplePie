@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { enviarConfirmacionSesion } = require('../services/emailService');
 
 const crearSesion = async (req, res) => {
   try {
@@ -122,6 +123,31 @@ const actualizarSesion = async (req, res) => {
       `UPDATE sesiones SET ${updates.join(', ')}, updated_at = NOW() WHERE id = ?`,
       values
     );
+
+    const estado = req.body.estado;
+    if (estado === 'confirmada') {
+      const [sesionData] = await pool.query(
+        `SELECT s.fecha_hora, s.asignatura, s.enlace_sesion,
+            ue.email AS estudianteEmail, ue.nombre AS estudianteNombre,
+            um.nombre AS mentoraNombre
+     FROM sesiones s
+     JOIN usuarios ue ON ue.id = s.estudiante_id
+     JOIN usuarios um ON um.id = s.mentora_id
+     WHERE s.id = ?`,
+        [req.params.id]
+      );
+      if (sesionData.length > 0) {
+        const s = sesionData[0];
+        enviarConfirmacionSesion({
+          toEmail: s.estudianteEmail,
+          toNombre: s.estudianteNombre,
+          mentoraNombre: s.mentoraNombre,
+          fecha_hora: s.fecha_hora,
+          asignatura: s.asignatura,
+          enlace_sesion: s.enlace_sesion,
+        });
+      }
+    }
 
     return res.status(200).json({ message: 'Sesión actualizada' });
   } catch (err) {
