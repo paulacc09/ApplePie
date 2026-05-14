@@ -59,7 +59,7 @@ const crearComunidad = async (req, res) => {
       semestre,
       descripcion,
       tipo = 'estudio',
-      modalidad = 'mixta',
+      modalidad = 'virtual',
       horario = '',
       capacidad_max = 30,
       imagen_portada = null,
