@@ -8,5 +8,6 @@ router.get('/', comunidadesController.getComunidades);
 router.get('/:id', comunidadesController.getComunidadById);
 router.post('/', verificarToken, comunidadesController.crearComunidad);
 router.post('/:id/unirse', verificarToken, comunidadesController.unirseAComunidad);
+router.delete('/:id/salir', verificarToken, comunidadesController.salirDeComunidad);
 
 module.exports = router;

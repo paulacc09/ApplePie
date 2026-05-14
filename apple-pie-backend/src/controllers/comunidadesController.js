@@ -131,9 +131,36 @@ const unirseAComunidad = async (req, res) => {
   }
 };
 
+const salirDeComunidad = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const usuario_id = req.usuario.id;
+
+    const [miembro] = await pool.query(
+      'SELECT comunidad_id FROM miembros_comunidad WHERE comunidad_id = ? AND usuario_id = ? AND activo = 1',
+      [id, usuario_id]
+    );
+
+    if (miembro.length === 0) {
+      return res.status(400).json({ error: 'No eres miembro de esta comunidad' });
+    }
+
+    await pool.query(
+      'UPDATE miembros_comunidad SET activo = 0 WHERE comunidad_id = ? AND usuario_id = ?',
+      [id, usuario_id]
+    );
+
+    return res.status(200).json({ message: 'Saliste de la comunidad' });
+  } catch (err) {
+    console.error('Error en salirDeComunidad:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   getComunidades,
   getComunidadById,
   crearComunidad,
   unirseAComunidad,
+  salirDeComunidad,
 };
