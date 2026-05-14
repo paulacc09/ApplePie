@@ -22,6 +22,16 @@ const isProduction = process.env.NODE_ENV === 'production';
 app.set('trust proxy', 1);
 app.use(helmet());
 
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.options('/{*path}', cors(corsOptions));
+
 const limiterGeneral = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
@@ -51,16 +61,6 @@ app.use(limiterGeneral);
 app.use('/api/auth', limiterAuth);
 app.use('/api/recursos', limiterUpload);
 app.use('/api/perfil/foto', limiterUpload);
-
-const corsOptions = {
-  origin: process.env.FRONTEND_URL || '*',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-};
-
-app.use(cors(corsOptions));
-app.options('/{*path}', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
