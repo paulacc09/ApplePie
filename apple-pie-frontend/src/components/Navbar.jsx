@@ -62,12 +62,19 @@ export default function Navbar({ onToggleSidebar }) {
           <span aria-hidden="true">{theme === 'dark' ? '☀️' : '🌙'}</span>
         </button>
 
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-rose text-sm font-semibold text-ink"
-          title={displayName(user)}
-          aria-label={`Usuario: ${displayName(user) || 'Invitada'}`}
-        >
-          {initialLetter(user)}
+        <div className="relative shrink-0" title={displayName(user)}>
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-rose text-sm font-semibold text-ink"
+            aria-label={`Usuario: ${displayName(user) || 'Invitada'}`}
+          >
+            {initialLetter(user)}
+          </div>
+          <span
+            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose text-[8px] font-bold text-ink"
+            aria-label="Notificaciones"
+          >
+            2
+          </span>
         </div>
 
         <button

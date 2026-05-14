@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const linksBefore = [
   { to: '/home', label: 'Inicio', emoji: '🏠' },
@@ -11,6 +12,13 @@ const linksAfter = [
   { to: '/mentoria', label: 'Mentorías', emoji: '🎓' },
   { to: '/agenda', label: 'Mi Agenda', emoji: '📅' },
   { to: '/perfil', label: 'Mi Perfil', emoji: '👤' },
+]
+
+const mentorLinks = [
+  { to: '/mentora/dashboard', label: 'Mi Panel', emoji: '📊' },
+  { to: '/mentora/agenda', label: 'Mi Agenda', emoji: '📅' },
+  { to: '/mentora/materiales', label: 'Mis Materiales', emoji: '📎' },
+  { to: '/mentora/perfil', label: 'Mi Perfil', emoji: '👤' },
 ]
 
 function linkClass({ isActive }) {
@@ -38,6 +46,9 @@ function NavBlock({ links, onClose }) {
 }
 
 export default function Sidebar({ open, onClose }) {
+  const { user } = useAuth()
+  const isMentora = user?.rol === 'mentora'
+
   return (
     <>
       <button
@@ -59,10 +70,16 @@ export default function Sidebar({ open, onClose }) {
           <NavBlock links={linksBefore} onClose={onClose} />
           <div className="my-4 border-t border-line" />
           <NavBlock links={linksAfter} onClose={onClose} />
+          {isMentora ? (
+            <>
+              <div className="my-4 border-t border-line" />
+              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-olive">Mentora</p>
+              <NavBlock links={mentorLinks} onClose={onClose} />
+            </>
+          ) : null}
         </nav>
       </aside>
 
-      {/* Drawer móvil (mismo contenido) */}
       <aside
         className={`fixed left-0 top-16 z-50 flex h-[calc(100vh-4rem)] w-60 flex-col overflow-y-auto border-r border-line bg-warm shadow-card transition-transform duration-200 md:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
@@ -70,7 +87,16 @@ export default function Sidebar({ open, onClose }) {
         aria-hidden={!open}
       >
         <nav className="flex flex-col px-3 py-6" aria-label="Principal móvil">
-          <NavBlock links={[...linksBefore, ...linksAfter]} onClose={onClose} />
+          <NavBlock links={linksBefore} onClose={onClose} />
+          <div className="my-4 border-t border-line" />
+          <NavBlock links={linksAfter} onClose={onClose} />
+          {isMentora ? (
+            <>
+              <div className="my-4 border-t border-line" />
+              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-olive">Mentora</p>
+              <NavBlock links={mentorLinks} onClose={onClose} />
+            </>
+          ) : null}
         </nav>
       </aside>
     </>

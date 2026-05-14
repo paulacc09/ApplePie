@@ -11,8 +11,13 @@ import ComunidadDetalle from '../pages/ComunidadDetalle.jsx'
 import Repositorio from '../pages/Repositorio.jsx'
 import Foro from '../pages/Foro.jsx'
 import Mentoria from '../pages/Mentoria.jsx'
-import Perfil from '../pages/Perfil.jsx'
+import PerfilMentora from '../pages/PerfilMentora.jsx'
+import MiPerfil from '../pages/MiPerfil.jsx'
 import MiAgenda from '../pages/MiAgenda.jsx'
+import DashboardMentora from '../pages/DashboardMentora.jsx'
+import AgendaMentora from '../pages/AgendaMentora.jsx'
+import MaterialesMentora from '../pages/MaterialesMentora.jsx'
+import EditarPerfilMentora from '../pages/EditarPerfilMentora.jsx'
 
 export default function AppRoutes() {
   return (
@@ -31,8 +36,13 @@ export default function AppRoutes() {
           <Route path="/repositorio" element={<Repositorio />} />
           <Route path="/foro" element={<Foro />} />
           <Route path="/mentoria" element={<Mentoria />} />
-          <Route path="/perfil" element={<Perfil />} />
+          <Route path="/mentoria/:id" element={<PerfilMentora />} />
+          <Route path="/perfil" element={<MiPerfil />} />
           <Route path="/agenda" element={<MiAgenda />} />
+          <Route path="/mentora/dashboard" element={<DashboardMentora />} />
+          <Route path="/mentora/agenda" element={<AgendaMentora />} />
+          <Route path="/mentora/materiales" element={<MaterialesMentora />} />
+          <Route path="/mentora/perfil" element={<EditarPerfilMentora />} />
         </Route>
       </Route>
     </Routes>
