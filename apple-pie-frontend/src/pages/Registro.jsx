@@ -16,6 +16,7 @@ export default function Registro() {
   const navigate = useNavigate()
 
   const nombreId = useId()
+  const apellidoId = useId()
   const emailId = useId()
   const passwordId = useId()
   const confirmId = useId()
@@ -27,6 +28,7 @@ export default function Registro() {
   const termsId = useId()
 
   const [nombre, setNombre] = useState('')
+  const [apellido, setApellido] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -59,6 +61,7 @@ export default function Registro() {
 
     const payload = {
       nombre: nombre.trim(),
+      apellido: apellido.trim(),
       email: email.trim(),
       password,
       universidad: universidad.trim(),
@@ -67,7 +70,7 @@ export default function Registro() {
       edad: Number(edad),
     }
 
-    if (!payload.nombre || !payload.email || !payload.universidad || !payload.programa || !edad) {
+    if (!payload.nombre || !payload.apellido || !payload.email || !payload.universidad || !payload.programa || !edad) {
       setError('Completa todos los campos obligatorios.')
       return
     }
@@ -102,16 +105,36 @@ export default function Registro() {
 
           <form className="mt-8 space-y-4" onSubmit={handleSubmit} noValidate>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
+              <div>
                 <label htmlFor={nombreId} className="text-sm font-medium text-ink">
-                  Nombre completo
+                  Nombre
                 </label>
                 <input
                   id={nombreId}
+                  name="nombre"
                   type="text"
                   required
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
+                  placeholder="Tu nombre"
+                  className={`${field} mt-1`}
+                  aria-required="true"
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? errorId : undefined}
+                />
+              </div>
+              <div>
+                <label htmlFor={apellidoId} className="text-sm font-medium text-ink">
+                  Apellido
+                </label>
+                <input
+                  id={apellidoId}
+                  name="apellido"
+                  type="text"
+                  required
+                  value={apellido}
+                  onChange={(e) => setApellido(e.target.value)}
+                  placeholder="Tu apellido"
                   className={`${field} mt-1`}
                   aria-required="true"
                   aria-invalid={Boolean(error)}
