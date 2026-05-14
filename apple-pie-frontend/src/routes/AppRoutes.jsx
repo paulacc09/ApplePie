@@ -18,6 +18,13 @@ import DashboardMentora from '../pages/DashboardMentora.jsx'
 import AgendaMentora from '../pages/AgendaMentora.jsx'
 import MaterialesMentora from '../pages/MaterialesMentora.jsx'
 import EditarPerfilMentora from '../pages/EditarPerfilMentora.jsx'
+import ModeradoraReportes from '../pages/ModeradoraReportes.jsx'
+import ModeradoraHistorial from '../pages/ModeradoraHistorial.jsx'
+import ModeradoraComunidades from '../pages/ModeradoraComunidades.jsx'
+import AdminDashboard from '../pages/AdminDashboard.jsx'
+import AdminUsuarios from '../pages/AdminUsuarios.jsx'
+import AdminPagos from '../pages/AdminPagos.jsx'
+import AdminReportes from '../pages/AdminReportes.jsx'
 
 export default function AppRoutes() {
   return (
@@ -43,6 +50,13 @@ export default function AppRoutes() {
           <Route path="/mentora/agenda" element={<AgendaMentora />} />
           <Route path="/mentora/materiales" element={<MaterialesMentora />} />
           <Route path="/mentora/perfil" element={<EditarPerfilMentora />} />
+          <Route path="/moderadora/reportes" element={<ModeradoraReportes />} />
+          <Route path="/moderadora/historial" element={<ModeradoraHistorial />} />
+          <Route path="/moderadora/comunidades" element={<ModeradoraComunidades />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+          <Route path="/admin/pagos" element={<AdminPagos />} />
+          <Route path="/admin/reportes" element={<AdminReportes />} />
         </Route>
       </Route>
     </Routes>
