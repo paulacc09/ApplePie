@@ -4,6 +4,7 @@ const cors = require('cors');
 const authRoutes = require('./src/routes/auth');
 const comunidadesRoutes = require('./src/routes/comunidades');
 const recursosRoutes = require('./src/routes/recursos');
+const foroRoutes = require('./src/routes/foro');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/comunidades', comunidadesRoutes);
 app.use('/api/recursos', recursosRoutes);
+app.use('/api', foroRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
