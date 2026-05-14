@@ -1,15 +1,32 @@
+import { useNavigate } from 'react-router-dom'
+import { api } from '../api/axios.js'
+import { getErrorMessage } from '../lib/apiError.js'
+
 export default function MiAgenda() {
+  const navigate = useNavigate()
   const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
   const dates = [12, 13, 14, 15, 16, 17, 18]
+
+  async function handleCrearEvento() {
+    try {
+      await api.post('/api/sesiones', {
+        titulo: 'Nueva sesión',
+        fecha: new Date().toISOString(),
+      })
+      window.alert('Sesión creada correctamente.')
+    } catch (e) {
+      window.alert(getErrorMessage(e))
+    }
+  }
 
   return (
     <div className="rounded-2xl border border-line bg-warm p-6 shadow-card md:p-8">
       <div className="flex items-center justify-between">
-        <button type="button" className="text-lg text-rose-dark">
+        <button type="button" className="text-lg text-rose-dark" onClick={() => navigate('/comunidades')}>
           ‹
         </button>
         <h1 className="font-display text-xl text-ink">Mayo 2026</h1>
-        <button type="button" className="text-lg text-rose-dark">
+        <button type="button" className="text-lg text-rose-dark" onClick={() => navigate('/comunidades')}>
           ›
         </button>
       </div>
@@ -23,6 +40,7 @@ export default function MiAgenda() {
           <button
             key={d}
             type="button"
+            onClick={() => navigate('/comunidades')}
             className={`rounded-full py-2 transition-colors ${
               d === 15 ? 'bg-rose text-white' : 'text-ink hover:bg-rose-light'
             }`}
@@ -43,6 +61,7 @@ export default function MiAgenda() {
       </div>
       <button
         type="button"
+        onClick={handleCrearEvento}
         className="mt-8 w-full rounded-xl bg-rose px-5 py-2.5 text-sm font-medium text-ink shadow-sm hover:bg-rose-dark"
       >
         CREAR EVENTO

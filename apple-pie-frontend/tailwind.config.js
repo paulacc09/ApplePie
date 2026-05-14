@@ -22,6 +22,7 @@ export default {
         warm: '#FFFCF8',
         ink: '#3D2E2E',
         stone: '#7A6464',
+        muted: '#7A6464',
         faded: '#B09898',
         line: '#F0E6E8',
         blush: '#FDE8EC',

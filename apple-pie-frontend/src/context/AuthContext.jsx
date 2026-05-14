@@ -24,8 +24,8 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY))
   const [loading] = useState(false)
 
-  const login = useCallback(async (email, password) => {
-    const { data } = await api.post('/api/auth/login', { email, password })
+  const login = useCallback(async (email, password, rol) => {
+    const { data } = await api.post('/api/auth/login', { email, password, rol })
     const nextToken = data.token ?? data.accessToken ?? data.access_token
     const nextUser = data.user ?? data.usuario ?? null
     if (!nextToken) {

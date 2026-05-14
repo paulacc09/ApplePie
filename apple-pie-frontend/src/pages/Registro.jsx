@@ -96,6 +96,13 @@ export default function Registro() {
       style={{ backgroundImage: FLORAL_BG }}
     >
       <div className="mx-auto w-full max-w-lg px-4">
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="mb-4 flex items-center gap-1 text-xs text-muted hover:text-ink"
+        >
+          ← Volver al inicio
+        </button>
         <div className="rounded-3xl border border-line bg-white/90 p-8 shadow-xl backdrop-blur-sm">
           <div className="flex justify-center">
             <LogoApplePie />

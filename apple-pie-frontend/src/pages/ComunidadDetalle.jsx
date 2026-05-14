@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import LogoApplePie from '../components/LogoApplePie.jsx'
+import ModalSubirRecurso from '../components/ModalSubirRecurso.jsx'
 import { api } from '../api/axios.js'
 import { getErrorMessage } from '../lib/apiError.js'
 
@@ -89,6 +90,17 @@ export default function ComunidadDetalle() {
   const [postText, setPostText] = useState('')
   const [publishing, setPublishing] = useState(false)
   const [resourceFilter, setResourceFilter] = useState('Todos')
+  const [showModalRecurso, setShowModalRecurso] = useState(false)
+
+  const recargarRecursosGrupo = useCallback(async () => {
+    if (!id) return
+    try {
+      const { data } = await api.get('/api/grupos/' + id + '/recursos')
+      setRecursos(normalizeRecursosList(data).map(mapRecurso))
+    } catch {
+      setRecursos([])
+    }
+  }, [id])
 
   useEffect(() => {
     let cancelled = false
@@ -194,7 +206,7 @@ export default function ComunidadDetalle() {
   async function handleCrearEvento() {
     if (!id) return
     try {
-      await api.post(`/api/grupos/${id}/sesiones`, {
+      await api.post('/api/comunidades/' + id + '/sesiones', {
         titulo: 'Nuevo evento',
         fecha: new Date().toISOString(),
       })
@@ -202,6 +214,11 @@ export default function ComunidadDetalle() {
     } catch (e) {
       window.alert(getErrorMessage(e))
     }
+  }
+
+  function cerrarModalRecursoYRecargar() {
+    setShowModalRecurso(false)
+    void recargarRecursosGrupo()
   }
 
   return (
@@ -423,6 +440,16 @@ export default function ComunidadDetalle() {
 
           {tab === 'recursos' ? (
             <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-ink">Recursos del grupo</p>
+                <button
+                  type="button"
+                  onClick={() => setShowModalRecurso(true)}
+                  className="rounded-xl bg-rose px-4 py-2 text-xs font-medium text-ink shadow-sm hover:bg-rose-dark"
+                >
+                  ↑ Subir recurso
+                </button>
+              </div>
               <section>
                 <p className="mb-2 text-xs font-semibold text-olive">🌟 Destacados por la mentora</p>
                 {destacados.length === 0 ? (
@@ -503,6 +530,12 @@ export default function ComunidadDetalle() {
           No se encontró la comunidad.
         </p>
       ) : null}
+
+      <ModalSubirRecurso
+        open={showModalRecurso}
+        onClose={cerrarModalRecursoYRecargar}
+        onUploaded={recargarRecursosGrupo}
+      />
     </div>
   )
 }

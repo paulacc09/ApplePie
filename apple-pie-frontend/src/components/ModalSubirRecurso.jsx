@@ -75,6 +75,7 @@ export default function ModalSubirRecurso({ open, onClose, onUploaded }) {
 
     setLoading(true)
     try {
+      const archivo = file
       const formData = new FormData()
       formData.append('titulo', titulo.trim())
       formData.append('descripcion', descripcion.trim())
@@ -82,10 +83,23 @@ export default function ModalSubirRecurso({ open, onClose, onUploaded }) {
       formData.append('semestre', semestre)
       formData.append('tipo', tipo)
       formData.append('acceso', acceso)
-      formData.append('archivo', file)
+      formData.append('archivo', archivo)
 
       await api.post('/api/recursos', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        transformRequest: [
+          (data, headers) => {
+            if (data instanceof FormData) {
+              if (headers && typeof headers.delete === 'function') {
+                headers.delete('Content-Type')
+              } else if (headers) {
+                delete headers['Content-Type']
+                delete headers['content-type']
+              }
+            }
+            return data
+          },
+        ],
       })
 
       resetForm()
@@ -99,7 +113,7 @@ export default function ModalSubirRecurso({ open, onClose, onUploaded }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div
         className="relative w-full max-w-md rounded-3xl border border-line bg-warm p-6 shadow-xl"
         role="dialog"
@@ -114,11 +128,12 @@ export default function ModalSubirRecurso({ open, onClose, onUploaded }) {
         >
           ✕
         </button>
-        <h2 id="modal-subir-titulo" className="font-display text-lg text-ink">
-          Subir nuevo recurso
-        </h2>
+        <div className="overflow-y-auto max-h-[85vh]">
+          <h2 id="modal-subir-titulo" className="font-display text-lg text-ink">
+            Subir nuevo recurso
+          </h2>
 
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           <div>
             <label htmlFor={tituloId} className="mb-1 block text-sm font-medium text-ink">
               Título
@@ -252,6 +267,7 @@ export default function ModalSubirRecurso({ open, onClose, onUploaded }) {
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   )
