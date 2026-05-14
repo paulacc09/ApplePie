@@ -10,21 +10,33 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-const subirACloudinary = (buffer, originalname) => {
+const subirACloudinary = (buffer, arg) => {
   return new Promise((resolve, reject) => {
-    const ext = originalname.split('.').pop().toLowerCase();
-    const rawTypes = ['docx', 'pptx', 'xlsx', 'txt'];
-    const resource_type = rawTypes.includes(ext) ? 'raw' : 'auto';
+    if (buffer == null) {
+      reject(new Error('buffer requerido'));
+      return;
+    }
 
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: 'apple-pie/recursos', resource_type },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      }
-    );
+    let options;
+    let returnSecureUrlOnly = false;
+
+    if (arg != null && typeof arg === 'object') {
+      options = { ...arg };
+      returnSecureUrlOnly = true;
+    } else {
+      const originalname = arg || '';
+      const ext = String(originalname).split('.').pop().toLowerCase();
+      const rawTypes = ['docx', 'pptx', 'xlsx', 'txt'];
+      const resource_type = rawTypes.includes(ext) ? 'raw' : 'auto';
+      options = { folder: 'apple-pie/recursos', resource_type };
+    }
+
+    const stream = cloudinary.uploader.upload_stream(options, (error, result) => {
+      if (error) reject(error);
+      else if (returnSecureUrlOnly) resolve(result.secure_url);
+      else resolve(result);
+    });
     stream.end(buffer);
   });
 };
-
 module.exports = { cloudinary, upload, subirACloudinary };

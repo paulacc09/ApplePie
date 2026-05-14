@@ -1,5 +1,7 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const authRoutes = require('./src/routes/auth');
 const comunidadesRoutes = require('./src/routes/comunidades');
@@ -9,9 +11,43 @@ const sesionesRoutes = require('./src/routes/sesiones');
 const pagosRoutes = require('./src/routes/pagos');
 const reportesRoutes = require('./src/routes/reportes');
 const adminRoutes = require('./src/routes/admin');
+const notificacionesRoutes = require('./src/routes/notificaciones');
+const perfilRoutes = require('./src/routes/perfil');
 const foroRoutes = require('./src/routes/foro');
 
 const app = express();
+
+app.set('trust proxy', 1);
+app.use(helmet());
+
+const limiterGeneral = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas peticiones, intenta en 15 minutos' },
+});
+
+const limiterAuth = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos, intenta en 15 minutos' },
+});
+
+const limiterUpload = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Límite de subidas alcanzado, intenta en 1 hora' },
+});
+
+app.use(limiterGeneral);
+app.use('/api/auth', limiterAuth);
+app.use('/api/recursos', limiterUpload);
+app.use('/api/perfil/foto', limiterUpload);
 
 app.use(
   cors({
@@ -35,6 +71,8 @@ app.use('/api/sesiones', sesionesRoutes);
 app.use('/api/pagos', pagosRoutes);
 app.use('/api/reportes', reportesRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notificaciones', notificacionesRoutes);
+app.use('/api/perfil', perfilRoutes);
 app.use('/api', foroRoutes);
 
 app.use((err, req, res, next) => {
