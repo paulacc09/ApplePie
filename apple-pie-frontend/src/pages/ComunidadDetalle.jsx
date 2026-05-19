@@ -285,7 +285,7 @@ export default function ComunidadDetalle() {
         hora: eventoForm.hora,
         modalidad: eventoForm.modalidad || 'virtual',
         capacidad_max: Number(eventoForm.capacidad_max) || 30,
-        meet_link: eventoForm.meet_link.trim() || null,
+        meet_link: eventoForm.modalidad !== 'presencial' ? eventoForm.meet_link.trim() || null : null,
       }
       await api.post(`/api/comunidades/${id}/eventos`, body)
       await cargarEventos()
@@ -752,24 +752,29 @@ export default function ComunidadDetalle() {
                 </label>
               </div>
 
-              <label className="block text-sm font-medium text-ink">
-                Link de Meet (opcional)
-                <input
-                  type="url"
-                  value={eventoForm.meet_link || ''}
-                  onChange={(e) => setEventoForm((f) => ({ ...f, meet_link: e.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-rose bg-white px-4 py-3 text-sm text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
-                  placeholder="https://meet.google.com/xxx-yyyy-zzz"
-                />
-                <a
-                  href="https://meet.google.com/new"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-block text-xs text-rose-dark underline"
-                >
-                  → Crear sala en Google Meet y copiar el link
-                </a>
-              </label>
+              {eventoForm.modalidad !== 'presencial' ? (
+                <div>
+                  <label className="text-sm font-medium text-ink">Link de Meet</label>
+                  <a
+                    href="https://meet.google.com/new"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-2 mt-1 block rounded-xl bg-olive px-3 py-2 text-center text-xs text-white hover:opacity-80"
+                  >
+                    1. Crear sala en Google Meet →
+                  </a>
+                  <input
+                    type="url"
+                    value={eventoForm.meet_link || ''}
+                    onChange={(e) => setEventoForm((f) => ({ ...f, meet_link: e.target.value }))}
+                    className="w-full rounded-xl border border-rose bg-white px-4 py-3 text-sm text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
+                    placeholder="2. Pega aquí el link: https://meet.google.com/xxx-yyyy-zzz"
+                  />
+                  <p className="mt-1 text-xs text-faded">
+                    Copia el link de la sala que acabas de crear y pégalo aquí.
+                  </p>
+                </div>
+              ) : null}
 
               {eventoError ? (
                 <p className="rounded-xl border border-rose bg-blush px-4 py-3 text-sm text-rose-dark">
