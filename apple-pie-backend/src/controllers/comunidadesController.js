@@ -91,7 +91,7 @@ const crearComunidad = async (req, res) => {
     try {
       await pool.execute(
         'INSERT INTO miembros_comunidad (usuario_id, comunidad_id, rol) VALUES (?, ?, ?)',
-        [req.usuario.id, comunidadId, 'estudiante']
+        [req.usuario.id, comunidadId, 'creadora']
       );
     } catch (err) {
       console.error('Error al agregar miembro:', err.message, err.sqlMessage);
