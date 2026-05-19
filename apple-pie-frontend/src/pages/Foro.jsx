@@ -103,7 +103,7 @@ export default function Foro() {
   }
 
   return (
-    <div className="rounded-2xl border border-line bg-warm p-8 shadow-card">
+    <div className="mx-auto w-full max-w-4xl rounded-2xl border border-line bg-warm px-6 py-6 shadow-card">
       <header className="mb-6">
         <h1 className="font-display text-2xl text-ink">Foro global</h1>
         <p className="mt-3 text-sm leading-relaxed text-stone">

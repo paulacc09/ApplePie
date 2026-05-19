@@ -65,8 +65,30 @@ export default function Repositorio() {
   }, [])
 
   useEffect(() => {
-    fetchRecursos()
-  }, [fetchRecursos])
+    let cancelled = false
+
+    async function loadInitialRecursos() {
+      setLoading(true)
+      setError('')
+      try {
+        const { data } = await api.get('/api/recursos')
+        const list = Array.isArray(data) ? data : []
+        if (!cancelled) setRecursos(list.map(mapRecurso))
+      } catch (e) {
+        if (!cancelled) {
+          setError(getErrorMessage(e))
+          setRecursos([])
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadInitialRecursos()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -78,7 +100,7 @@ export default function Repositorio() {
   }, [recursos, query, tipoF])
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 pb-8">
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-6 py-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <h1 className="font-display text-2xl text-ink">Repositorio</h1>
         <label htmlFor="repo-search" className="sr-only">
@@ -94,7 +116,7 @@ export default function Repositorio() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-wrap items-center gap-2 pb-1">
         <select aria-label="Asignatura" value={asig} onChange={(e) => setAsig(e.target.value)} className={selectClass}>
           <option value="">Asignatura</option>
           <option>Cálculo III</option>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/axios.js'
 import { getErrorMessage } from '../lib/apiError.js'
 import MentorCard from '../components/MentorCard.jsx'
@@ -45,23 +45,30 @@ export default function Mentoria() {
   const [q, setQ] = useState('')
   const [asig, setAsig] = useState('')
 
-  const fetchMentoras = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const { data } = await api.get('/api/mentoras')
-      setMentoras(normalizeList(data).map(mapMentora))
-    } catch (e) {
-      setError(getErrorMessage(e))
-      setMentoras([])
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadInitialMentoras() {
+      setLoading(true)
+      setError('')
+      try {
+        const { data } = await api.get('/api/mentoras')
+        if (!cancelled) setMentoras(normalizeList(data).map(mapMentora))
+      } catch (e) {
+        if (!cancelled) {
+          setError(getErrorMessage(e))
+          setMentoras([])
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadInitialMentoras()
+    return () => {
+      cancelled = true
     }
   }, [])
-
-  useEffect(() => {
-    fetchMentoras()
-  }, [fetchMentoras])
 
   const asignaturasOptions = useMemo(() => {
     const s = new Set()
@@ -109,16 +116,16 @@ export default function Mentoria() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-6 py-6">
+      <div className="mb-6 flex w-full flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-2xl text-ink">Mentorías</h1>
-        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="search"
             placeholder="Buscar mentora..."
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="w-full max-w-md rounded-full border border-line bg-white px-4 py-2.5 text-sm text-ink placeholder:text-faded shadow-sm focus:outline-none focus:ring-2 focus:ring-rose sm:max-w-xs"
+            className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm text-ink placeholder:text-faded shadow-sm focus:outline-none focus:ring-2 focus:ring-rose sm:w-56"
           />
           <select aria-label="Asignatura" value={asig} onChange={(e) => setAsig(e.target.value)} className={selectClass}>
             <option value="">Asignatura</option>

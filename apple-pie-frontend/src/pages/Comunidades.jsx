@@ -65,8 +65,26 @@ export default function Comunidades() {
   }, [])
 
   useEffect(() => {
-    loadComunidades()
-  }, [loadComunidades])
+    let cancelled = false
+
+    async function loadInitialComunidades() {
+      setLoading(true)
+      setError('')
+      try {
+        const { data } = await api.get('/api/comunidades')
+        if (!cancelled) setList(normalizeList(data).map(mapComunidad))
+      } catch (e) {
+        if (!cancelled) setError(getErrorMessage(e))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadInitialComunidades()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const materias = useMemo(() => {
     const s = new Set(list.map((c) => c.materia).filter(Boolean))
@@ -125,7 +143,7 @@ export default function Comunidades() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-6 py-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="font-display text-2xl text-ink">Comunidades</h1>
         <button
@@ -137,7 +155,7 @@ export default function Comunidades() {
         </button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1 md:flex-wrap">
+      <div className="flex flex-wrap gap-2 pb-1">
         <select
           aria-label="Asignatura"
           value={filterAsig}

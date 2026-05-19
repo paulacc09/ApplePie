@@ -127,7 +127,7 @@ export default function MiAgenda() {
   }, [mes])
 
   return (
-    <div className="rounded-2xl border border-line bg-warm p-6 shadow-card md:p-8">
+    <div className="mx-auto w-full max-w-4xl rounded-2xl border border-line bg-warm px-6 py-6 shadow-card">
       <div className="flex items-center justify-between">
         <button type="button" className="text-lg text-rose-dark" onClick={mesAnterior}>
           ‹

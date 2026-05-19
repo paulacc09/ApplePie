@@ -100,7 +100,7 @@ export default function Home() {
   }, [])
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 md:max-w-5xl">
+    <div className="mx-auto w-full max-w-4xl space-y-8 px-6 py-6">
       <div className="md:hidden">
         <label htmlFor="home-search" className="sr-only">
           Buscar
@@ -127,11 +127,11 @@ export default function Home() {
             Ver todas →
           </Link>
         </div>
-        <div className="-mx-4 flex gap-3 overflow-x-auto pb-2 px-4 md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
+        <div className="flex flex-wrap gap-3 pb-2">
           {comunidades.map((c) => (
             <article
               key={c.id || c.nombre}
-              className="min-w-[160px] shrink-0 rounded-2xl bg-rose-light p-4 shadow-card"
+              className="min-w-[160px] flex-1 rounded-2xl bg-rose-light p-4 shadow-card"
             >
               <div className="text-2xl" aria-hidden="true">
                 {careerEmoji(c.asignatura)}
@@ -143,7 +143,7 @@ export default function Home() {
           <button
             type="button"
             onClick={() => navigate('/comunidades')}
-            className="flex min-w-[160px] shrink-0 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-rose bg-warm p-4 text-center shadow-card"
+            className="flex min-w-[160px] flex-1 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-rose bg-warm p-4 text-center shadow-card"
           >
             <span className="text-2xl text-rose" aria-hidden="true">
               +
