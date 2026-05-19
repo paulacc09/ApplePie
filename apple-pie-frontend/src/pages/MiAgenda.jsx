@@ -4,69 +4,58 @@ import { getErrorMessage } from '../lib/apiError.js'
 
 const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
-function normalizeSesionesList(data) {
+function normalizeEventosList(data) {
   if (Array.isArray(data)) return data
   if (Array.isArray(data?.data)) return data.data
-  if (Array.isArray(data?.sesiones)) return data.sesiones
+  if (Array.isArray(data?.eventos)) return data.eventos
   return []
 }
 
-function sesionEnMes(s, mes, anio) {
-  if (!s?.fecha_hora) return false
-  const d = new Date(s.fecha_hora)
+function eventoFecha(e) {
+  if (!e?.fecha) return null
+  const fecha = String(e.fecha)
+  return /^\d{4}-\d{2}-\d{2}/.test(fecha) ? new Date(`${fecha.slice(0, 10)}T00:00:00`) : new Date(e.fecha)
+}
+
+function eventoEnMes(e, mes, anio) {
+  const d = eventoFecha(e)
+  if (!d || Number.isNaN(d.getTime())) return false
   return d.getMonth() === mes && d.getFullYear() === anio
 }
 
-function eventCardClasses(estado) {
-  const e = String(estado ?? '').toLowerCase()
-  if (e === 'pendiente') return 'rounded-lg border-l-4 border-rose bg-rose-light px-3 py-2'
-  if (e === 'confirmada') return 'rounded-lg border-l-4 border-olive bg-mint px-3 py-2'
-  if (e === 'completada') return 'rounded-lg border-l-4 border-line bg-cream px-3 py-2'
-  return 'rounded-lg border-l-4 border-line bg-warm px-3 py-2'
-}
-
-function estadoLabelSpanClass(estado) {
-  const e = String(estado ?? '').toLowerCase()
-  if (e === 'pendiente') return 'text-xs font-medium text-rose-dark'
-  if (e === 'confirmada') return 'text-xs font-medium text-olive'
-  if (e === 'completada') return 'text-xs font-medium text-stone'
-  return 'text-xs font-medium text-faded'
-}
-
-function estadoTexto(estado) {
-  const e = String(estado ?? '').toLowerCase()
-  if (e === 'pendiente') return 'Pendiente'
-  if (e === 'confirmada') return 'Confirmada'
-  if (e === 'completada') return 'Completada'
-  return estado ? String(estado) : '—'
-}
+const eventCardClasses = 'rounded-lg border-l-4 border-olive bg-mint px-3 py-2'
 
 export default function MiAgenda() {
-  const [sesiones, setSesiones] = useState([])
+  const [eventos, setEventos] = useState([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
   const [mes, setMes] = useState(() => new Date().getMonth())
   const [anio, setAnio] = useState(() => new Date().getFullYear())
 
-  const cargarSesiones = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) {
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadEventos() {
       setCargando(true)
       setError(null)
+      try {
+        const res = await api.get('/api/eventos')
+        if (!cancelled) {
+          setEventos(normalizeEventosList(res.data))
+          setError(null)
+        }
+      } catch (e) {
+        if (!cancelled) setError(getErrorMessage(e))
+      } finally {
+        if (!cancelled) setCargando(false)
+      }
     }
-    try {
-      const res = await api.get('/api/sesiones/estudiante')
-      setSesiones(normalizeSesionesList(res.data))
-      setError(null)
-    } catch (e) {
-      setError(getErrorMessage(e))
-    } finally {
-      if (!silent) setCargando(false)
+
+    loadEventos()
+    return () => {
+      cancelled = true
     }
   }, [])
-
-  useEffect(() => {
-    cargarSesiones()
-  }, [cargarSesiones])
 
   const tituloMes = useMemo(() => {
     const s = new Date(anio, mes).toLocaleString('es-CO', { month: 'long', year: 'numeric' })
@@ -91,17 +80,17 @@ export default function MiAgenda() {
     return cells
   }, [padded])
 
-  const conSesion = useMemo(() => {
+  const conEvento = useMemo(() => {
     const s = new Set()
-    sesiones.forEach((ses) => {
-      if (!ses.fecha_hora) return
-      const d = new Date(ses.fecha_hora)
+    eventos.forEach((evento) => {
+      const d = eventoFecha(evento)
+      if (!d || Number.isNaN(d.getTime())) return
       if (d.getMonth() === mes && d.getFullYear() === anio) {
         s.add(d.getDate())
       }
     })
     return s
-  }, [sesiones, mes, anio])
+  }, [eventos, mes, anio])
 
   const hoyNum = useMemo(() => {
     const h = new Date()
@@ -109,11 +98,11 @@ export default function MiAgenda() {
     return null
   }, [mes, anio])
 
-  const sesionesMes = useMemo(() => {
-    return sesiones
-      .filter((s) => sesionEnMes(s, mes, anio))
-      .sort((a, b) => new Date(a.fecha_hora) - new Date(b.fecha_hora))
-  }, [sesiones, mes, anio])
+  const eventosMes = useMemo(() => {
+    return eventos
+      .filter((evento) => eventoEnMes(evento, mes, anio))
+      .sort((a, b) => eventoFecha(a) - eventoFecha(b) || String(a.hora ?? '').localeCompare(String(b.hora ?? '')))
+  }, [eventos, mes, anio])
 
   const mesAnterior = useCallback(() => {
     if (mes === 0) {
@@ -150,7 +139,7 @@ export default function MiAgenda() {
       </div>
 
       {cargando ? (
-        <p className="mt-4 text-center text-sm text-faded">Cargando sesiones…</p>
+        <p className="mt-4 text-center text-sm text-faded">Cargando eventos…</p>
       ) : null}
 
       {!cargando && error ? (
@@ -167,7 +156,7 @@ export default function MiAgenda() {
           if (d == null) {
             return <div key={`e-${idx}`} className="py-2" />
           }
-          const tiene = conSesion.has(d)
+          const tiene = conEvento.has(d)
           const sel = hoyNum != null && d === hoyNum
           const res = tiene && !sel
           return (
@@ -184,33 +173,38 @@ export default function MiAgenda() {
         })}
       </div>
       <div className="mt-8 space-y-3">
-        {!cargando && !error && sesionesMes.length === 0 ? (
+        {!cargando && !error && eventosMes.length === 0 ? (
           <p className="rounded-xl border border-line bg-cream px-4 py-6 text-center text-sm text-faded">
-            No hay sesiones en este mes.
+            No hay eventos en este mes.
           </p>
         ) : null}
         {!cargando && !error
-          ? sesionesMes.map((s) => {
-              const dt = s.fecha_hora ? new Date(s.fecha_hora) : null
+          ? eventosMes.map((e) => {
+              const dt = eventoFecha(e)
               const fechaStr = dt
                 ? dt.toLocaleDateString('es-CO', {
                     weekday: 'short',
                     day: 'numeric',
                     month: 'short',
-                    year: 'numeric',
                   })
                 : '—'
-              const horaStr = dt
-                ? dt.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-                : '—'
-              const asig = s.asignatura?.trim() || 'Sesión'
               return (
-                <div key={s.id} className={eventCardClasses(s.estado)}>
-                  <span className={estadoLabelSpanClass(s.estado)}>{estadoTexto(s.estado)}</span>
-                  <p className="text-sm text-ink">
-                    {asig} — {horaStr}
+                <div key={e.id} className={eventCardClasses}>
+                  <p className="text-sm font-semibold text-ink">{e.nombre}</p>
+                  <p className="text-xs text-stone">
+                    {fechaStr} · {e.hora ?? '—'}
                   </p>
-                  <p className="text-xs text-faded">{fechaStr}</p>
+                  <p className="text-xs text-faded">{e.comunidad_nombre}</p>
+                  {e.meet_link ? (
+                    <a
+                      href={e.meet_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-rose-dark underline"
+                    >
+                      Unirse a Meet →
+                    </a>
+                  ) : null}
                 </div>
               )
             })

@@ -4,7 +4,6 @@ import LogoApplePie from '../components/LogoApplePie.jsx'
 import ModalSubirRecurso from '../components/ModalSubirRecurso.jsx'
 import { api } from '../api/axios.js'
 import { getErrorMessage } from '../lib/apiError.js'
-import { generarMeetLink } from '../utils/meetLink.js'
 
 const EVENTO_INICIAL = {
   nombre: '',
@@ -13,6 +12,7 @@ const EVENTO_INICIAL = {
   hora: '',
   modalidad: 'virtual',
   capacidad_max: 30,
+  meet_link: '',
 }
 
 function avatarBg(role) {
@@ -278,7 +278,6 @@ export default function ComunidadDetalle() {
 
     setCreandoEvento(true)
     try {
-      const meetLink = eventoForm.modalidad !== 'presencial' ? generarMeetLink() : null
       const body = {
         nombre: eventoForm.nombre.trim(),
         descripcion: eventoForm.descripcion.trim(),
@@ -286,7 +285,7 @@ export default function ComunidadDetalle() {
         hora: eventoForm.hora,
         modalidad: eventoForm.modalidad || 'virtual',
         capacidad_max: Number(eventoForm.capacidad_max) || 30,
-        meet_link: meetLink,
+        meet_link: eventoForm.meet_link.trim() || null,
       }
       await api.post(`/api/comunidades/${id}/eventos`, body)
       await cargarEventos()
@@ -752,6 +751,25 @@ export default function ComunidadDetalle() {
                   />
                 </label>
               </div>
+
+              <label className="block text-sm font-medium text-ink">
+                Link de Meet (opcional)
+                <input
+                  type="url"
+                  value={eventoForm.meet_link || ''}
+                  onChange={(e) => setEventoForm((f) => ({ ...f, meet_link: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-rose bg-white px-4 py-3 text-sm text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
+                  placeholder="https://meet.google.com/xxx-yyyy-zzz"
+                />
+                <a
+                  href="https://meet.google.com/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-block text-xs text-rose-dark underline"
+                >
+                  → Crear sala en Google Meet y copiar el link
+                </a>
+              </label>
 
               {eventoError ? (
                 <p className="rounded-xl border border-rose bg-blush px-4 py-3 text-sm text-rose-dark">
