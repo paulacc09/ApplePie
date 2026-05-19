@@ -210,6 +210,15 @@ export default function MiAgenda() {
                       >
                         Unirse →
                       </a>
+                    ) : e.modalidad !== 'presencial' ? (
+                      <a
+                        href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(e.nombre)}&vcon=meet`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 rounded-lg bg-gray-300 px-2 py-1 text-xs text-gray-600 hover:opacity-80"
+                      >
+                        Programar →
+                      </a>
                     ) : null}
                   </div>
                   {e.descripcion ? (

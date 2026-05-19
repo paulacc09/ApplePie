@@ -512,6 +512,15 @@ export default function ComunidadDetalle() {
                             >
                               Unirse →
                             </a>
+                          ) : mod !== 'presencial' ? (
+                            <a
+                              href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(evento.nombre)}&vcon=meet`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded-lg bg-gray-300 px-2 py-1 text-xs text-gray-600 hover:opacity-80"
+                            >
+                              Programar →
+                            </a>
                           ) : null}
                         </div>
                         {evento.descripcion ? (
