@@ -11,13 +11,13 @@ router.get('/', async (req, res) => {
         p.id,
         p.contenido,
         p.me_gusta,
-        p.creado_en,
+        p.created_at,
         u.nombre,
         u.apellido
       FROM publicaciones_foro p
       JOIN usuarios u ON p.autora_id = u.id
       WHERE p.comunidad_id IS NULL AND p.activa = 1
-      ORDER BY p.creado_en DESC
+      ORDER BY p.created_at DESC
     `);
     return res.json(posts);
   } catch (error) {
