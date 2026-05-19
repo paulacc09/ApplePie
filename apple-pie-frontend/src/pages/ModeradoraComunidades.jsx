@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api/axios.js'
 
 function normalizeComunidadesList(data) {
@@ -21,39 +21,6 @@ function mapGrupo(raw) {
   }
 }
 
-function ModeradoraNav() {
-  const { pathname } = useLocation()
-  const items = [
-    { to: '/moderadora/reportes', label: 'Reportes Activos', icon: '🛡️' },
-    { to: '/moderadora/historial', label: 'Historial', icon: '〜' },
-    { to: '/moderadora/comunidades', label: 'Comunidades', icon: '👥' },
-  ]
-  return (
-    <nav
-      className="mt-8 flex items-center justify-around gap-1 rounded-2xl border border-line bg-warm p-2 shadow-card"
-      aria-label="Navegación moderadora"
-    >
-      {items.map(({ to, label, icon }) => {
-        const active = pathname === to
-        return (
-          <Link
-            key={to}
-            to={to}
-            className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-center text-xs font-medium transition-colors duration-200 ${
-              active ? 'bg-olive text-white' : 'text-stone hover:bg-rose-light hover:text-ink'
-            }`}
-          >
-            <span className="text-lg" aria-hidden="true">
-              {icon}
-            </span>
-            <span className="leading-tight">{label}</span>
-          </Link>
-        )
-      })}
-    </nav>
-  )
-}
-
 export default function ModeradoraComunidades() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -65,7 +32,7 @@ export default function ModeradoraComunidades() {
     async function load() {
       setLoading(true)
       try {
-        const { data } = await api.get('/api/moderacion/comunidades')
+        const { data } = await api.get('/api/comunidades')
         if (!cancelled) setGrupos(normalizeComunidadesList(data).map(mapGrupo))
       } catch {
         if (!cancelled) setGrupos([])
@@ -89,7 +56,6 @@ export default function ModeradoraComunidades() {
     return (
       <div className="mx-auto max-w-5xl space-y-6 pb-10">
         <p className="rounded-2xl border border-line bg-warm p-8 text-center text-sm text-stone shadow-card">Cargando…</p>
-        <ModeradoraNav />
       </div>
     )
   }
@@ -132,7 +98,7 @@ export default function ModeradoraComunidades() {
             {filtrados.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-10 text-center text-sm text-stone">
-                  No hay comunidades activas.
+                  No hay comunidades registradas
                 </td>
               </tr>
             ) : (
@@ -170,8 +136,6 @@ export default function ModeradoraComunidades() {
           </tbody>
         </table>
       </div>
-
-      <ModeradoraNav />
     </div>
   )
 }
