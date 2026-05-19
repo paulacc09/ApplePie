@@ -31,11 +31,23 @@ const postularse = async (req, res) => {
 const getMentoras = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT pm.*, u.nombre, u.foto_perfil
-       FROM perfiles_mentora pm
-       INNER JOIN usuarios u ON u.id = pm.usuario_id
-       WHERE pm.activa = 1
-       ORDER BY pm.calificacion DESC`
+      `SELECT
+         COALESCE(pm.id, u.id) AS id,
+         pm.id AS perfil_id,
+         u.id AS usuario_id,
+         pm.bio_mentora,
+         pm.experiencia,
+         pm.especialidades,
+         pm.logros,
+         pm.calificacion,
+         pm.total_sesiones,
+         pm.activa,
+         u.nombre,
+         u.foto_perfil
+       FROM usuarios u
+       LEFT JOIN perfiles_mentora pm ON pm.usuario_id = u.id AND pm.activa = 1
+       WHERE u.rol = 'mentora'
+       ORDER BY COALESCE(pm.calificacion, 0) DESC, u.nombre ASC`
     );
 
     return res.status(200).json(rows);
