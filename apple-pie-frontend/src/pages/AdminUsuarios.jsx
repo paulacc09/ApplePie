@@ -55,6 +55,13 @@ function mapUsuario(raw) {
     plan: String(raw.plan ?? raw.subscription ?? 'gratuito').toLowerCase(),
     registro: raw.registro ?? raw.fecha_registro ?? raw.created_at ?? '—',
     estado: estadoRaw === 'suspendida' || estadoRaw === 'suspended' ? 'suspendida' : 'activa',
+    postulacionMentoraPendiente:
+      raw.perfil_mentora_activa !== null &&
+      raw.perfil_mentora_activa !== undefined &&
+      Number(raw.perfil_mentora_activa) === 0,
+    bioMentora: raw.bio_mentora ?? '',
+    experienciaMentora: raw.experiencia ?? '',
+    especialidadesMentora: raw.especialidades ?? '',
   }
 }
 
@@ -105,7 +112,11 @@ export default function AdminUsuarios() {
   }, [])
 
   useEffect(() => {
-    load()
+    const timer = window.setTimeout(() => {
+      void load()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [load])
 
   const filtradas = useMemo(() => {
@@ -121,6 +132,20 @@ export default function AdminUsuarios() {
       return true
     })
   }, [rows, q, rolFiltro, estadoFiltro])
+
+  const postulacionesPendientes = useMemo(
+    () => rows.filter((u) => u.postulacionMentoraPendiente && u.rol !== 'mentora'),
+    [rows],
+  )
+
+  async function patchRol(id, rol) {
+    try {
+      await api.patch(`/api/admin/usuarios/${id}/rol`, { rol })
+      await load()
+    } catch (e) {
+      window.alert(getErrorMessage(e))
+    }
+  }
 
   async function patchEstado(id, estado) {
     try {
@@ -158,6 +183,35 @@ export default function AdminUsuarios() {
           Crea, modifica y desactiva cuentas. Asigna roles con permisos específicos.
         </p>
       </header>
+
+      {postulacionesPendientes.length > 0 ? (
+        <section className="rounded-2xl border border-rose bg-blush p-4 shadow-card">
+          <h2 className="font-display text-lg text-ink">Postulaciones a mentora pendientes</h2>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            {postulacionesPendientes.map((u) => (
+              <article key={u.id} className="rounded-xl border border-rose/40 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-medium text-ink">{u.nombre}</h3>
+                    <p className="text-xs text-stone">{u.email}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => patchRol(u.id, 'mentora')}
+                    className="shrink-0 rounded-lg bg-olive px-3 py-1.5 text-xs font-medium text-white hover:bg-olive-deep"
+                  >
+                    Aprobar
+                  </button>
+                </div>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-olive">Especialidades</p>
+                <p className="mt-1 text-sm text-stone">{u.especialidadesMentora || 'Sin especialidades registradas.'}</p>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-olive">Experiencia</p>
+                <p className="mt-1 line-clamp-3 text-sm text-stone">{u.experienciaMentora || 'Sin experiencia registrada.'}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="flex flex-col gap-3 rounded-2xl border border-line bg-white p-4 shadow-card md:flex-row md:flex-wrap md:items-end">
         <label className="block min-w-[12rem] flex-1 text-xs font-medium text-stone">
@@ -240,6 +294,11 @@ export default function AdminUsuarios() {
                     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeRolClass(u.rol)}`}>
                       {labelRol(u.rol)}
                     </span>
+                    {u.postulacionMentoraPendiente && u.rol !== 'mentora' ? (
+                      <span className="ml-2 inline-block rounded-full bg-blush px-2.5 py-0.5 text-xs font-medium text-rose-dark">
+                        Postulación pendiente
+                      </span>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgePlanClass(u.plan)}`}>
@@ -265,6 +324,15 @@ export default function AdminUsuarios() {
                       >
                         Editar
                       </button>
+                      {u.postulacionMentoraPendiente && u.rol !== 'mentora' ? (
+                        <button
+                          type="button"
+                          onClick={() => patchRol(u.id, 'mentora')}
+                          className="rounded-lg border border-olive bg-olive px-2 py-1 text-xs font-medium text-white hover:bg-olive-deep"
+                        >
+                          Aprobar mentora
+                        </button>
+                      ) : null}
                       {u.estado === 'activa' ? (
                         <button
                           type="button"

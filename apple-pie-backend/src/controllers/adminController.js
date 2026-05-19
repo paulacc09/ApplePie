@@ -10,7 +10,7 @@ const listarUsuarios = async (req, res) => {
     const params = [];
 
     if (rol !== undefined && rol !== '') {
-      conditions.push('rol = ?');
+      conditions.push('u.rol = ?');
       params.push(rol);
     }
 
@@ -18,18 +18,42 @@ const listarUsuarios = async (req, res) => {
       if (activo !== '0' && activo !== '1' && activo !== 0 && activo !== 1) {
         return res.status(400).json({ error: 'activo debe ser 0 o 1' });
       }
-      conditions.push('activo = ?');
+      conditions.push('u.activo = ?');
       params.push(Number(activo));
     }
 
     if (buscar !== undefined && buscar !== '') {
       const like = `%${buscar}%`;
-      conditions.push('(nombre LIKE ? OR email LIKE ?)');
+      conditions.push('(u.nombre LIKE ? OR u.email LIKE ?)');
       params.push(like, like);
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-    const sql = `SELECT id, nombre, email, rol, activo, created_at FROM usuarios ${whereClause} ORDER BY created_at DESC`;
+    const sql = `SELECT
+        u.id,
+        u.nombre,
+        u.apellido,
+        u.email,
+        u.rol,
+        u.activo,
+        u.created_at,
+        pm.id AS perfil_mentora_id,
+        pm.activa AS perfil_mentora_activa,
+        pm.bio_mentora,
+        pm.experiencia,
+        pm.especialidades
+      FROM usuarios u
+      LEFT JOIN (
+        SELECT p1.*
+        FROM perfiles_mentora p1
+        INNER JOIN (
+          SELECT usuario_id, MAX(id) AS id
+          FROM perfiles_mentora
+          GROUP BY usuario_id
+        ) latest ON latest.id = p1.id
+      ) pm ON pm.usuario_id = u.id
+      ${whereClause}
+      ORDER BY u.created_at DESC`;
 
     const [rows] = await db.query(sql, params);
 
@@ -59,6 +83,17 @@ const cambiarRol = async (req, res) => {
 
     if (updateResult.affectedRows === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    if (rol === 'mentora') {
+      await db.query(
+        `UPDATE perfiles_mentora
+         SET activa = 1, updated_at = NOW()
+         WHERE usuario_id = ?
+         ORDER BY id DESC
+         LIMIT 1`,
+        [id]
+      );
     }
 
     return res.status(200).json({ message: 'Rol actualizado' });

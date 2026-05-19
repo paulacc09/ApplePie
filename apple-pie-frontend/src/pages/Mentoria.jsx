@@ -46,6 +46,15 @@ export default function Mentoria() {
   const [q, setQ] = useState('')
   const [carrera, setCarrera] = useState('')
   const [carrerasOptions, setCarrerasOptions] = useState([''])
+  const [postulacionOpen, setPostulacionOpen] = useState(false)
+  const [postulacion, setPostulacion] = useState({
+    experiencia: '',
+    especialidades: '',
+    bio: '',
+  })
+  const [postulando, setPostulando] = useState(false)
+  const [postulacionError, setPostulacionError] = useState('')
+  const [postulacionOk, setPostulacionOk] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -96,18 +105,35 @@ export default function Mentoria() {
     })
   }, [mentoras, q])
 
-  async function handlePostularse() {
+  function handlePostulacionChange(e) {
+    const { name, value } = e.target
+    setPostulacion((prev) => ({ ...prev, [name]: value }))
+  }
+
+  function openPostulacion() {
+    setPostulacionError('')
+    setPostulacionOk('')
+    setPostulacionOpen(true)
+  }
+
+  async function handlePostularse(e) {
+    e.preventDefault()
+    setPostulacionError('')
+    setPostulacionOk('')
+    setPostulando(true)
     try {
-      const { data } = await api.post('/api/mentoras/postularse', {})
-      window.alert(
-        typeof data?.message === 'string' && data.message
-          ? data.message
-          : data?.id != null
-            ? 'Postulación enviada correctamente.'
-            : 'Solicitud enviada.',
+      const { data } = await api.post('/api/mentoras/postular', {
+        experiencia: postulacion.experiencia,
+        especialidades: postulacion.especialidades,
+        bio: postulacion.bio,
+      })
+      setPostulacionOk(
+        typeof data?.message === 'string' && data.message ? data.message : 'Postulación enviada para aprobación.',
       )
     } catch (e) {
-      window.alert(getErrorMessage(e))
+      setPostulacionError(getErrorMessage(e))
+    } finally {
+      setPostulando(false)
     }
   }
 
@@ -138,7 +164,7 @@ export default function Mentoria() {
           </select>
           <button
             type="button"
-            onClick={handlePostularse}
+            onClick={openPostulacion}
             className="shrink-0 rounded-xl border border-rose bg-white px-4 py-2 text-sm font-medium text-rose-dark transition-all duration-200 hover:bg-rose-light"
           >
             Postularme como mentora
@@ -170,6 +196,97 @@ export default function Mentoria() {
           {list.map((m) => (
             <MentorCard key={m.id} mentor={m} />
           ))}
+        </div>
+      ) : null}
+
+      {postulacionOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 py-6">
+          <div className="w-full max-w-lg rounded-2xl border border-line bg-white p-6 shadow-card">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-display text-xl text-ink">Postulación mentora</h2>
+                <p className="mt-1 text-sm text-stone">
+                  Completa tu experiencia, especialidades y bio. Admin revisará tu postulación antes de activar el rol.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPostulacionOpen(false)}
+                className="rounded-lg px-2 py-1 text-sm text-stone hover:bg-warm"
+                aria-label="Cerrar postulación"
+              >
+                ×
+              </button>
+            </div>
+
+            <form className="mt-5 space-y-4" onSubmit={handlePostularse}>
+              <label className="block text-sm font-medium text-ink">
+                Experiencia
+                <textarea
+                  name="experiencia"
+                  value={postulacion.experiencia}
+                  onChange={handlePostulacionChange}
+                  required
+                  rows={4}
+                  className="mt-1 w-full rounded-xl border border-line bg-warm px-3 py-2 text-sm text-ink outline-none ring-rose/30 focus:ring-2"
+                  placeholder="Cuéntanos tu experiencia enseñando o acompañando estudiantes."
+                />
+              </label>
+
+              <label className="block text-sm font-medium text-ink">
+                Especialidades
+                <textarea
+                  name="especialidades"
+                  value={postulacion.especialidades}
+                  onChange={handlePostulacionChange}
+                  required
+                  rows={3}
+                  className="mt-1 w-full rounded-xl border border-line bg-warm px-3 py-2 text-sm text-ink outline-none ring-rose/30 focus:ring-2"
+                  placeholder="Ej: UX Research, prototipado, entrevistas, Figma"
+                />
+              </label>
+
+              <label className="block text-sm font-medium text-ink">
+                Bio
+                <textarea
+                  name="bio"
+                  value={postulacion.bio}
+                  onChange={handlePostulacionChange}
+                  required
+                  rows={4}
+                  className="mt-1 w-full rounded-xl border border-line bg-warm px-3 py-2 text-sm text-ink outline-none ring-rose/30 focus:ring-2"
+                  placeholder="Escribe una breve presentación para tu perfil."
+                />
+              </label>
+
+              {postulacionError ? (
+                <p className="rounded-xl border border-rose bg-blush px-4 py-3 text-sm text-rose-dark">
+                  {postulacionError}
+                </p>
+              ) : null}
+
+              {postulacionOk ? (
+                <p className="rounded-xl border border-olive bg-mint px-4 py-3 text-sm text-olive">{postulacionOk}</p>
+              ) : null}
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPostulacionOpen(false)}
+                  className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-stone hover:bg-warm"
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="submit"
+                  disabled={postulando}
+                  className="rounded-xl bg-olive px-4 py-2 text-sm font-medium text-white transition-all hover:bg-olive-deep disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {postulando ? 'Enviando…' : 'Enviar postulación'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       ) : null}
     </div>

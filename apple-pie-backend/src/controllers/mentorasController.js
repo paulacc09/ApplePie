@@ -3,25 +3,47 @@ const pool = require('../config/db');
 const postularse = async (req, res) => {
   try {
     const usuario_id = req.usuario.id;
-    const { bio_mentora, experiencia, especialidades, logros } = req.body;
+    const { bio_mentora, bio, experiencia, especialidades, logros } = req.body;
+    const bioMentora = bio_mentora ?? bio;
+
+    if (!bioMentora || !experiencia || !especialidades) {
+      return res.status(400).json({ error: 'Bio, experiencia y especialidades son obligatorias' });
+    }
 
     const [existente] = await pool.query(
-      'SELECT id FROM perfiles_mentora WHERE usuario_id = ? AND activa = 1',
+      'SELECT id, activa FROM perfiles_mentora WHERE usuario_id = ? ORDER BY id DESC LIMIT 1',
       [usuario_id]
     );
 
+    if (existente.length > 0 && existente[0].activa === 1) {
+      return res.status(400).json({ error: 'Ya tienes un perfil de mentora activo' });
+    }
+
     if (existente.length > 0) {
-      return res.status(400).json({ error: 'Ya tienes un perfil de mentora' });
+      await pool.query(
+        `UPDATE perfiles_mentora
+         SET bio_mentora = ?, experiencia = ?, especialidades = ?, logros = ?, activa = 0, updated_at = NOW()
+         WHERE id = ?`,
+        [bioMentora, experiencia, especialidades, logros ?? null, existente[0].id]
+      );
+
+      return res.status(200).json({
+        id: existente[0].id,
+        message: 'Postulación actualizada y enviada para aprobación',
+      });
     }
 
     const [result] = await pool.query(
       `INSERT INTO perfiles_mentora
         (usuario_id, bio_mentora, experiencia, especialidades, logros, calificacion, total_sesiones, activa)
-       VALUES (?, ?, ?, ?, ?, 0.00, 0, 1)`,
-      [usuario_id, bio_mentora, experiencia, especialidades, logros]
+       VALUES (?, ?, ?, ?, ?, 0.00, 0, 0)`,
+      [usuario_id, bioMentora, experiencia, especialidades, logros ?? null]
     );
 
-    return res.status(201).json({ id: result.insertId });
+    return res.status(201).json({
+      id: result.insertId,
+      message: 'Postulación enviada para aprobación',
+    });
   } catch (err) {
     console.error('Error en postularse:', err);
     return res.status(500).json({ error: 'Error interno del servidor' });
