@@ -63,6 +63,16 @@ export default function Home() {
   const [recursos, setRecursos] = useState([])
 
   useEffect(() => {
+    if (user?.rol === 'mentora') {
+      navigate('/mentora/dashboard', { replace: true })
+    } else if (user?.rol === 'moderadora') {
+      navigate('/moderadora/reportes', { replace: true })
+    } else if (user?.rol === 'admin') {
+      navigate('/admin/dashboard', { replace: true })
+    }
+  }, [navigate, user?.rol])
+
+  useEffect(() => {
     let cancelled = false
 
     async function loadComunidades() {

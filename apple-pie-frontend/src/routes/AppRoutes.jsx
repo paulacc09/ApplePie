@@ -46,17 +46,23 @@ export default function AppRoutes() {
           <Route path="/mentoria/:id" element={<PerfilMentora />} />
           <Route path="/perfil" element={<MiPerfil />} />
           <Route path="/agenda" element={<MiAgenda />} />
-          <Route path="/mentora/dashboard" element={<DashboardMentora />} />
-          <Route path="/mentora/agenda" element={<AgendaMentora />} />
-          <Route path="/mentora/materiales" element={<MaterialesMentora />} />
-          <Route path="/mentora/perfil" element={<EditarPerfilMentora />} />
-          <Route path="/moderadora/reportes" element={<ModeradoraReportes />} />
-          <Route path="/moderadora/historial" element={<ModeradoraHistorial />} />
-          <Route path="/moderadora/comunidades" element={<ModeradoraComunidades />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/usuarios" element={<AdminUsuarios />} />
-          <Route path="/admin/pagos" element={<AdminPagos />} />
-          <Route path="/admin/reportes" element={<AdminReportes />} />
+          <Route element={<PrivateRoute allowedRoles={['mentora']} />}>
+            <Route path="/mentora/dashboard" element={<DashboardMentora />} />
+            <Route path="/mentora/agenda" element={<AgendaMentora />} />
+            <Route path="/mentora/materiales" element={<MaterialesMentora />} />
+            <Route path="/mentora/perfil" element={<EditarPerfilMentora />} />
+          </Route>
+          <Route element={<PrivateRoute allowedRoles={['moderadora']} />}>
+            <Route path="/moderadora/reportes" element={<ModeradoraReportes />} />
+            <Route path="/moderadora/historial" element={<ModeradoraHistorial />} />
+            <Route path="/moderadora/comunidades" element={<ModeradoraComunidades />} />
+          </Route>
+          <Route element={<PrivateRoute allowedRoles={['admin']} />}>
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+            <Route path="/admin/pagos" element={<AdminPagos />} />
+            <Route path="/admin/reportes" element={<AdminReportes />} />
+          </Route>
         </Route>
       </Route>
     </Routes>
