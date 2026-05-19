@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 
 const authRoutes = require('./src/routes/auth');
 const comunidadesRoutes = require('./src/routes/comunidades');
+const eventosComunidadRoutes = require('./src/routes/eventos_comunidad');
 const recursosRoutes = require('./src/routes/recursos');
 const mentorasRoutes = require('./src/routes/mentoras');
 const sesionesRoutes = require('./src/routes/sesiones');
@@ -82,6 +83,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/comunidades/:id/eventos', eventosComunidadRoutes);
 app.use('/api/comunidades', comunidadesRoutes);
 app.use('/api/recursos', recursosRoutes);
 app.use('/api/mentoras', mentorasRoutes);

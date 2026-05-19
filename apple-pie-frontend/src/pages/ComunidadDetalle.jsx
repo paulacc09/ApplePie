@@ -87,9 +87,9 @@ function mapRecurso(raw) {
   }
 }
 
-function normalizeSesionesList(data) {
+function normalizeEventosList(data) {
   if (Array.isArray(data)) return data
-  if (Array.isArray(data?.sesiones)) return data.sesiones
+  if (Array.isArray(data?.eventos)) return data.eventos
   if (Array.isArray(data?.data)) return data.data
   return []
 }
@@ -110,7 +110,7 @@ export default function ComunidadDetalle() {
   const [publishing, setPublishing] = useState(false)
   const [resourceFilter, setResourceFilter] = useState('Todos')
   const [showModalRecurso, setShowModalRecurso] = useState(false)
-  const [sesiones, setSesiones] = useState([])
+  const [eventos, setEventos] = useState([])
   const [showModalEvento, setShowModalEvento] = useState(false)
   const [eventoForm, setEventoForm] = useState(EVENTO_INICIAL)
   const [creandoEvento, setCreandoEvento] = useState(false)
@@ -127,20 +127,36 @@ export default function ComunidadDetalle() {
     }
   }, [id])
 
-  const cargarSesiones = useCallback(async () => {
+  const cargarEventos = useCallback(async () => {
     if (!id) return
     try {
-      const { data } = await api.get(`/api/comunidades/${id}/sesiones`)
-      setSesiones(normalizeSesionesList(data))
+      const { data } = await api.get(`/api/comunidades/${id}/eventos`)
+      setEventos(normalizeEventosList(data))
     } catch (err) {
-      console.error('Error cargando sesiones:', err)
-      setSesiones([])
+      console.error('Error cargando eventos:', err)
+      setEventos([])
     }
   }, [id])
 
   useEffect(() => {
-    if (id) void cargarSesiones()
-  }, [id, cargarSesiones])
+    if (!id) return undefined
+    let cancelled = false
+
+    async function loadEventos() {
+      try {
+        const { data } = await api.get(`/api/comunidades/${id}/eventos`)
+        if (!cancelled) setEventos(normalizeEventosList(data))
+      } catch (err) {
+        console.error('Error cargando eventos:', err)
+        if (!cancelled) setEventos([])
+      }
+    }
+
+    loadEventos()
+    return () => {
+      cancelled = true
+    }
+  }, [id])
 
   useEffect(() => {
     let cancelled = false
@@ -263,16 +279,17 @@ export default function ComunidadDetalle() {
     setCreandoEvento(true)
     try {
       const meetLink = eventoForm.modalidad !== 'presencial' ? generarMeetLink() : null
-      await api.post('/api/comunidades/' + id + '/sesiones', {
+      const body = {
         nombre: eventoForm.nombre.trim(),
+        descripcion: eventoForm.descripcion.trim(),
         fecha: eventoForm.fecha,
         hora: eventoForm.hora,
         modalidad: eventoForm.modalidad || 'virtual',
-        descripcion: eventoForm.descripcion.trim(),
         capacidad_max: Number(eventoForm.capacidad_max) || 30,
         meet_link: meetLink,
-      })
-      await cargarSesiones()
+      }
+      await api.post(`/api/comunidades/${id}/eventos`, body)
+      await cargarEventos()
       setShowModalEvento(false)
       setEventoForm(EVENTO_INICIAL)
       setEventoSuccess('Evento creado correctamente.')
@@ -425,13 +442,13 @@ export default function ComunidadDetalle() {
                 </p>
               ) : null}
               <div className="mt-2 space-y-2">
-                {sesiones.length === 0 ? (
+                {eventos.length === 0 ? (
                   <p className="py-4 text-center text-sm text-stone">
-                    No hay sesiones registradas para esta comunidad.
+                    No hay eventos registrados para esta comunidad.
                   </p>
                 ) : (
-                  sesiones.map((sesion) => {
-                    const rawFecha = sesion.fecha
+                  eventos.map((evento) => {
+                    const rawFecha = evento.fecha
                     const fechaStr = rawFecha ? String(rawFecha) : ''
                     const fechaFmt =
                       fechaStr.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(fechaStr)
@@ -449,23 +466,22 @@ export default function ComunidadDetalle() {
                               year: 'numeric',
                             })
                           : '—'
-                    const mod = String(sesion.modalidad ?? '').toLowerCase()
-                    const titulo = sesion.nombre ?? sesion.titulo ?? sesion.asignatura ?? 'Evento sin nombre'
+                    const mod = String(evento.modalidad ?? '').toLowerCase()
                     return (
-                      <div key={sesion.id} className="mb-2 rounded-xl bg-blush/30 p-3">
+                      <div key={evento.id} className="mb-2 rounded-xl bg-blush/30 p-3">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <p className="text-sm font-semibold text-ink">{titulo}</p>
+                            <p className="text-sm font-semibold text-ink">{evento.nombre}</p>
                             <p className="text-xs text-stone">
-                              {fechaFmt} · {sesion.hora ?? '—'}
+                              {fechaFmt} · {evento.hora ?? '—'}
                             </p>
                             <span className="text-xs text-rose-dark">
                               {mod === 'virtual' ? '🎥 Virtual' : '📍 Presencial'}
                             </span>
                           </div>
-                          {sesion.meet_link ? (
+                          {evento.meet_link ? (
                             <a
-                              href={sesion.meet_link}
+                              href={evento.meet_link}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="shrink-0 rounded-lg bg-olive px-2 py-1 text-xs text-white hover:opacity-80"
@@ -474,8 +490,8 @@ export default function ComunidadDetalle() {
                             </a>
                           ) : null}
                         </div>
-                        {sesion.descripcion ? (
-                          <p className="mt-1 text-xs text-stone">{sesion.descripcion}</p>
+                        {evento.descripcion ? (
+                          <p className="mt-1 text-xs text-stone">{evento.descripcion}</p>
                         ) : null}
                       </div>
                     )
