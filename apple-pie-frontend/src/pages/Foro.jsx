@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/axios.js'
-import { getErrorMessage } from '../lib/apiError.js'
 
 function normalizeForoList(data) {
   if (Array.isArray(data)) return data
@@ -11,9 +10,10 @@ function normalizeForoList(data) {
 }
 
 function mapPost(raw) {
+  const autor = [raw.autor_nombre, raw.autor_apellido].filter(Boolean).join(' ').trim()
   return {
     id: raw.id,
-    name: raw.autor_nombre ?? raw.nombre ?? 'Usuario',
+    name: autor || raw.nombre || 'Usuario',
     handle: '@' + (raw.autor_username ?? raw.autor_id ?? ''),
     time: raw.created_at ?? '',
     text: raw.contenido ?? raw.texto ?? '',
@@ -35,10 +35,17 @@ export default function Foro() {
     }
     try {
       const { data } = await api.get('/api/foro')
+      if (!Array.isArray(data)) {
+        console.error('Respuesta inesperada:', data)
+        setPosts([])
+        setError('')
+        return
+      }
       setPosts(normalizeForoList(data).map(mapPost))
       setError('')
     } catch (e) {
-      setError(getErrorMessage(e))
+      console.error('Error cargando publicaciones:', e)
+      setError('No se pudieron cargar las publicaciones. Intenta de nuevo.')
       setPosts([])
     } finally {
       if (opts.withSkeleton) setLoading(false)
@@ -46,8 +53,38 @@ export default function Foro() {
   }, [])
 
   useEffect(() => {
-    loadPosts({ withSkeleton: true })
-  }, [loadPosts])
+    let cancelled = false
+
+    async function loadInitialPosts() {
+      setLoading(true)
+      setError('')
+      try {
+        const { data } = await api.get('/api/foro')
+        if (!Array.isArray(data)) {
+          console.error('Respuesta inesperada:', data)
+          if (!cancelled) setPosts([])
+          return
+        }
+        if (!cancelled) {
+          setPosts(normalizeForoList(data).map(mapPost))
+          setError('')
+        }
+      } catch (e) {
+        console.error('Error cargando publicaciones:', e)
+        if (!cancelled) {
+          setError('No se pudieron cargar las publicaciones. Intenta de nuevo.')
+          setPosts([])
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadInitialPosts()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function handlePublicar() {
     const text = postText.trim()
@@ -58,7 +95,8 @@ export default function Foro() {
       setPostText('')
       await loadPosts({ withSkeleton: false })
     } catch (e) {
-      setError(getErrorMessage(e))
+      console.error('Error creando publicación:', e)
+      setError('No se pudo crear la publicación. Intenta de nuevo.')
     } finally {
       setPublishing(false)
     }
@@ -104,7 +142,7 @@ export default function Foro() {
             </div>
           </div>
 
-          {!loading && posts.length === 0 ? (
+          {!loading && !error && posts.length === 0 ? (
             <p className="rounded-2xl border border-line bg-warm p-4 text-center text-sm text-stone shadow-card">
               No hay publicaciones aún.
             </p>

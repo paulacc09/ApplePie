@@ -16,6 +16,7 @@ const adminRoutes = require('./src/routes/admin');
 const notificacionesRoutes = require('./src/routes/notificaciones');
 const perfilRoutes = require('./src/routes/perfil');
 const foroRoutes = require('./src/routes/foro');
+const foroGlobalRoutes = require('./src/routes/foro_global');
 
 const app = express();
 
@@ -95,6 +96,7 @@ app.use('/api/reportes', reportesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
 app.use('/api/perfil', perfilRoutes);
+app.use('/api/foro', foroGlobalRoutes);
 app.use('/api', foroRoutes);
 
 app.use((err, req, res, next) => {
