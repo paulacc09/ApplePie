@@ -14,12 +14,32 @@ const linksAfter = [
   { to: '/perfil', label: 'Mi Perfil', emoji: '👤' },
 ]
 
-const mentorLinks = [
-  { to: '/mentora/dashboard', label: 'Mi Panel', emoji: '📊' },
-  { to: '/mentora/agenda', label: 'Mi Agenda', emoji: '📅' },
-  { to: '/mentora/materiales', label: 'Mis Materiales', emoji: '📎' },
-  { to: '/mentora/perfil', label: 'Mi Perfil', emoji: '👤' },
-]
+const navSectionsByRole = {
+  estudiante: [linksBefore, linksAfter],
+  mentora: [
+    [
+      { to: '/mentora/dashboard', label: 'Inicio', emoji: '🏠' },
+      { to: '/mentora/agenda', label: 'Agenda', emoji: '📅' },
+      { to: '/mentora/materiales', label: 'Recursos', emoji: '📎' },
+      { to: '/mentora/perfil', label: 'Perfil', emoji: '👤' },
+    ],
+  ],
+  moderadora: [
+    [
+      { to: '/moderadora/reportes', label: 'Reportes Activos', emoji: '💬' },
+      { to: '/moderadora/historial', label: 'Historial', emoji: '📊' },
+      { to: '/moderadora/comunidades', label: 'Comunidades', emoji: '👥' },
+    ],
+  ],
+  admin: [
+    [
+      { to: '/admin/dashboard', label: 'Inicio', emoji: '🏠' },
+      { to: '/admin/usuarios', label: 'Agenda/Usuarias', emoji: '👥' },
+      { to: '/admin/pagos', label: 'Pagos y Planes', emoji: '📁' },
+      { to: '/perfil', label: 'Perfil', emoji: '👤' },
+    ],
+  ],
+}
 
 function linkClass({ isActive }) {
   const base =
@@ -45,9 +65,22 @@ function NavBlock({ links, onClose }) {
   )
 }
 
+function NavSections({ sections, onClose }) {
+  return (
+    <>
+      {sections.map((links, idx) => (
+        <div key={links.map((l) => l.to).join('|')}>
+          {idx > 0 ? <div className="my-4 border-t border-line" /> : null}
+          <NavBlock links={links} onClose={onClose} />
+        </div>
+      ))}
+    </>
+  )
+}
+
 export default function Sidebar({ open, onClose }) {
   const { user } = useAuth()
-  const isMentora = user?.rol === 'mentora'
+  const navSections = navSectionsByRole[user?.rol] ?? navSectionsByRole.estudiante
 
   return (
     <>
@@ -67,16 +100,7 @@ export default function Sidebar({ open, onClose }) {
         aria-label="Navegación lateral"
       >
         <nav className="flex flex-col px-3 py-6" aria-label="Principal">
-          <NavBlock links={linksBefore} onClose={onClose} />
-          <div className="my-4 border-t border-line" />
-          <NavBlock links={linksAfter} onClose={onClose} />
-          {isMentora ? (
-            <>
-              <div className="my-4 border-t border-line" />
-              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-olive">Mentora</p>
-              <NavBlock links={mentorLinks} onClose={onClose} />
-            </>
-          ) : null}
+          <NavSections sections={navSections} onClose={onClose} />
         </nav>
       </aside>
 
@@ -87,16 +111,7 @@ export default function Sidebar({ open, onClose }) {
         aria-hidden={!open}
       >
         <nav className="flex flex-col px-3 py-6" aria-label="Principal móvil">
-          <NavBlock links={linksBefore} onClose={onClose} />
-          <div className="my-4 border-t border-line" />
-          <NavBlock links={linksAfter} onClose={onClose} />
-          {isMentora ? (
-            <>
-              <div className="my-4 border-t border-line" />
-              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-olive">Mentora</p>
-              <NavBlock links={mentorLinks} onClose={onClose} />
-            </>
-          ) : null}
+          <NavSections sections={navSections} onClose={onClose} />
         </nav>
       </aside>
     </>
