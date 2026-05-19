@@ -425,9 +425,11 @@ export default function ComunidadDetalle() {
                     const fecha = fh
                       ? fh.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
                       : '—'
-                    const nombreSesion = s.nombre ?? s.titulo ?? s.asignatura ?? 'Sesión'
-                    const modalidad = s.modalidad ?? (s.meet_link ? 'virtual' : 'presencial')
-                    const icono = modalidad === 'virtual' ? '🎥' : '📅'
+                    const nombreSesion = s.nombre ?? s.titulo ?? s.asignatura ?? 'Evento sin nombre'
+                    const meetLink = s.meet_link ?? s.enlace_sesion
+                    const modalidad = String(s.modalidad ?? (meetLink ? 'virtual' : 'presencial')).toLowerCase()
+                    const icono = modalidad === 'virtual' ? '🎥' : '📍'
+                    const descripcionSesion = s.descripcion ?? s.descripcion_duda
                     return (
                       <div
                         key={s.id}
@@ -435,23 +437,23 @@ export default function ComunidadDetalle() {
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="rounded bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
-                            {icono} {modalidad}
+                            {icono} {modalidad === 'virtual' ? 'Virtual' : 'Presencial'}
                           </span>
-                          {s.meet_link ? (
+                          {meetLink ? (
                             <a
-                              href={s.meet_link}
+                              href={meetLink}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="rounded-lg bg-olive px-3 py-1 text-xs font-medium text-white hover:bg-olive-deep"
+                              className="text-xs font-medium text-olive underline hover:opacity-80"
                             >
-                              Unirse
+                              Unirse a Meet →
                             </a>
                           ) : null}
                         </div>
                         <p className="mt-1">
                           {nombreSesion} — {fecha} {hora}
                         </p>
-                        {s.descripcion ? <p className="mt-1 text-xs text-stone">{s.descripcion}</p> : null}
+                        {descripcionSesion ? <p className="mt-1 text-xs text-stone">{descripcionSesion}</p> : null}
                       </div>
                     )
                   })

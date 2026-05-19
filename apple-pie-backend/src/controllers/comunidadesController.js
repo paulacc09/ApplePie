@@ -189,6 +189,11 @@ const getSesionesComunidad = async (req, res) => {
     const [columns] = await pool.query('SHOW COLUMNS FROM sesiones');
     const columnNames = new Set(columns.map((c) => c.Field));
 
+    if (!columnNames.has('meet_link')) {
+      await pool.query('ALTER TABLE sesiones ADD COLUMN meet_link VARCHAR(255) NULL');
+      columnNames.add('meet_link');
+    }
+
     if (!columnNames.has('comunidad_id')) {
       return res.status(200).json([]);
     }
@@ -203,12 +208,15 @@ const getSesionesComunidad = async (req, res) => {
       : columnNames.has('fecha_hora')
         ? 'fecha_hora'
         : 'id';
+    const orderBy = columnNames.has('fecha') && columnNames.has('hora')
+      ? 's.fecha ASC, s.hora ASC'
+      : `s.${orderColumn} ASC`;
     const sql = joinColumn
-      ? `SELECT s.*, u.nombre, u.apellido
+      ? `SELECT s.*, u.nombre AS creadora_nombre, u.apellido AS creadora_apellido
          FROM sesiones s
          LEFT JOIN usuarios u ON u.id = s.${joinColumn}
          WHERE s.comunidad_id = ?
-         ORDER BY s.${orderColumn} ASC`
+         ORDER BY ${orderBy}`
       : `SELECT * FROM sesiones WHERE comunidad_id = ? ORDER BY ${orderColumn} ASC`;
 
     const [rows] = await pool.query(
@@ -268,7 +276,11 @@ const crearSesionComunidad = async (req, res) => {
       values.push(value);
     }
 
-    const nombreFinal = nombre ?? titulo ?? 'Nuevo evento';
+    const nombreFinal = String(nombre ?? titulo ?? asignatura ?? '').trim();
+    if (!nombreFinal) {
+      return res.status(400).json({ error: 'El nombre de la sesión es obligatorio' });
+    }
+
     const fechaFinal = fecha ?? new Date().toISOString();
     const horaFinal = hora ?? (
       fechaFinal ? new Date(fechaFinal).toTimeString().slice(0, 5) : '00:00'
