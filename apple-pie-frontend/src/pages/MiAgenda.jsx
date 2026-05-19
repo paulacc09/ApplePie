@@ -23,7 +23,11 @@ function eventoEnMes(e, mes, anio) {
   return d.getMonth() === mes && d.getFullYear() === anio
 }
 
-const eventCardClasses = 'rounded-lg border-l-4 border-olive bg-mint px-3 py-2'
+function eventCardClasses(tipo) {
+  return tipo === 'mentoria'
+    ? 'mb-2 rounded-xl border-l-4 border-rose bg-rose-light p-3'
+    : 'mb-2 rounded-xl border-l-4 border-olive bg-blush/30 p-3'
+}
 
 export default function MiAgenda() {
   const [eventos, setEventos] = useState([])
@@ -122,10 +126,6 @@ export default function MiAgenda() {
     }
   }, [mes])
 
-  function handleCrearEvento() {
-    window.alert('Creación de eventos disponible próximamente')
-  }
-
   return (
     <div className="rounded-2xl border border-line bg-warm p-6 shadow-card md:p-8">
       <div className="flex items-center justify-between">
@@ -174,8 +174,8 @@ export default function MiAgenda() {
       </div>
       <div className="mt-8 space-y-3">
         {!cargando && !error && eventosMes.length === 0 ? (
-          <p className="rounded-xl border border-line bg-cream px-4 py-6 text-center text-sm text-faded">
-            No hay eventos en este mes.
+          <p className="py-8 text-center text-sm text-faded">
+            No tienes eventos ni sesiones agendadas.
           </p>
         ) : null}
         {!cargando && !error
@@ -189,34 +189,37 @@ export default function MiAgenda() {
                   })
                 : '—'
               return (
-                <div key={e.id} className={eventCardClasses}>
-                  <p className="text-sm font-semibold text-ink">{e.nombre}</p>
-                  <p className="text-xs text-stone">
-                    {fechaStr} · {e.hora ?? '—'}
-                  </p>
-                  <p className="text-xs text-faded">{e.comunidad_nombre}</p>
-                  {e.meet_link ? (
-                    <a
-                      href={e.meet_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-rose-dark underline"
-                    >
-                      Unirse a Meet →
-                    </a>
+                <div key={`${e.tipo}-${e.id}`} className={eventCardClasses(e.tipo)}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="text-xs font-medium uppercase tracking-wide text-faded">
+                        {e.tipo === 'mentoria' ? '📚 Mentoría' : '👥 Comunidad'}
+                      </span>
+                      <p className="mt-0.5 text-sm font-semibold text-ink">{e.nombre}</p>
+                      <p className="text-xs text-stone">
+                        {fechaStr} · {e.hora ?? '—'}
+                      </p>
+                      <p className="text-xs text-faded">{e.contexto}</p>
+                    </div>
+                    {e.meet_link ? (
+                      <a
+                        href={e.meet_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 rounded-lg bg-olive px-2 py-1 text-xs text-white hover:opacity-80"
+                      >
+                        Unirse →
+                      </a>
+                    ) : null}
+                  </div>
+                  {e.descripcion ? (
+                    <p className="mt-1 text-xs text-stone">{e.descripcion}</p>
                   ) : null}
                 </div>
               )
             })
           : null}
       </div>
-      <button
-        type="button"
-        onClick={handleCrearEvento}
-        className="mt-8 w-full rounded-xl bg-rose px-5 py-2.5 text-sm font-medium text-ink shadow-sm hover:bg-rose-dark"
-      >
-        CREAR EVENTO
-      </button>
     </div>
   )
 }
