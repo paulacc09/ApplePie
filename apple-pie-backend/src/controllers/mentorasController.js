@@ -30,6 +30,15 @@ const postularse = async (req, res) => {
 
 const getMentoras = async (req, res) => {
   try {
+    const { carrera } = req.query;
+    const params = [];
+    let carreraFilter = '';
+
+    if (carrera !== undefined && carrera !== '') {
+      carreraFilter = ' AND u.programa = ?';
+      params.push(carrera);
+    }
+
     const [rows] = await pool.query(
       `SELECT
          u.id AS id,
@@ -43,11 +52,14 @@ const getMentoras = async (req, res) => {
          pm.total_sesiones,
          pm.activa,
          u.nombre,
+         u.apellido,
+         u.programa AS carrera,
          u.foto_perfil
        FROM usuarios u
        LEFT JOIN perfiles_mentora pm ON pm.usuario_id = u.id AND pm.activa = 1
-       WHERE u.rol = 'mentora'
-       ORDER BY COALESCE(pm.calificacion, 0) DESC, u.nombre ASC`
+       WHERE u.rol = 'mentora'${carreraFilter}
+       ORDER BY COALESCE(pm.calificacion, 0) DESC, u.nombre ASC`,
+      params
     );
 
     return res.status(200).json(rows);

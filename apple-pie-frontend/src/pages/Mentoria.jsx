@@ -28,6 +28,7 @@ function mapMentora(raw) {
   return {
     id: String(raw.id),
     nombre: raw.nombre,
+    carrera: raw.carrera ?? raw.programa ?? '',
     asignaturas: asignStr,
     rating: raw.rating ?? raw.calificacion ?? 0,
     horas: raw.horas_totales ?? raw.horas ?? raw.total_sesiones ?? 0,
@@ -43,7 +44,8 @@ export default function Mentoria() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [q, setQ] = useState('')
-  const [asig, setAsig] = useState('')
+  const [carrera, setCarrera] = useState('')
+  const [carrerasOptions, setCarrerasOptions] = useState([''])
 
   useEffect(() => {
     let cancelled = false
@@ -52,8 +54,19 @@ export default function Mentoria() {
       setLoading(true)
       setError('')
       try {
-        const { data } = await api.get('/api/mentoras')
-        if (!cancelled) setMentoras(normalizeList(data).map(mapMentora))
+        const { data } = await api.get('/api/mentoras', {
+          params: carrera ? { carrera } : undefined,
+        })
+        if (!cancelled) {
+          const mapped = normalizeList(data).map(mapMentora)
+          setMentoras(mapped)
+          if (!carrera) {
+            const carreras = Array.from(
+              new Set(mapped.map((m) => m.carrera).filter((c) => typeof c === 'string' && c.trim())),
+            ).sort()
+            setCarrerasOptions(['', ...carreras])
+          }
+        }
       } catch (e) {
         if (!cancelled) {
           setError(getErrorMessage(e))
@@ -68,20 +81,7 @@ export default function Mentoria() {
     return () => {
       cancelled = true
     }
-  }, [])
-
-  const asignaturasOptions = useMemo(() => {
-    const s = new Set()
-    for (const m of mentoras) {
-      if (Array.isArray(m.tags)) {
-        m.tags.forEach((t) => {
-          if (t) s.add(String(t).trim())
-        })
-      }
-      splitAsignaturas(m.asignaturas).forEach((t) => s.add(t))
-    }
-    return ['', ...Array.from(s).sort()]
-  }, [mentoras])
+  }, [carrera])
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -89,16 +89,12 @@ export default function Mentoria() {
       const ok =
         !s ||
         m.nombre.toLowerCase().includes(s) ||
+        String(m.carrera).toLowerCase().includes(s) ||
         String(m.asignaturas).toLowerCase().includes(s) ||
         m.tags.some((t) => String(t).toLowerCase().includes(s))
-      const okA =
-        !asig ||
-        m.tags.includes(asig) ||
-        splitAsignaturas(m.asignaturas).includes(asig) ||
-        String(m.asignaturas).includes(asig)
-      return ok && okA
+      return ok
     })
-  }, [mentoras, q, asig])
+  }, [mentoras, q])
 
   async function handlePostularse() {
     try {
@@ -127,11 +123,16 @@ export default function Mentoria() {
             onChange={(e) => setQ(e.target.value)}
             className="w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm text-ink placeholder:text-faded shadow-sm focus:outline-none focus:ring-2 focus:ring-rose sm:w-56"
           />
-          <select aria-label="Asignatura" value={asig} onChange={(e) => setAsig(e.target.value)} className={selectClass}>
-            <option value="">Asignatura</option>
-            {asignaturasOptions.filter(Boolean).map((a) => (
-              <option key={a} value={a}>
-                {a}
+          <select
+            aria-label="Carrera"
+            value={carrera}
+            onChange={(e) => setCarrera(e.target.value)}
+            className={selectClass}
+          >
+            <option value="">Carrera</option>
+            {carrerasOptions.filter(Boolean).map((c) => (
+              <option key={c} value={c}>
+                {c}
               </option>
             ))}
           </select>
