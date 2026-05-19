@@ -236,6 +236,7 @@ const crearSesionComunidad = async (req, res) => {
       capacidad_max,
       asignatura,
       duracion_min,
+      meet_link,
     } = req.body;
     const creadora_id = req.usuario.id;
 
@@ -250,6 +251,12 @@ const crearSesionComunidad = async (req, res) => {
 
     const [columns] = await pool.query('SHOW COLUMNS FROM sesiones');
     const columnNames = new Set(columns.map((c) => c.Field));
+
+    if (!columnNames.has('meet_link')) {
+      await pool.query('ALTER TABLE sesiones ADD COLUMN meet_link VARCHAR(255) NULL');
+      columnNames.add('meet_link');
+    }
+
     const fields = [];
     const placeholders = [];
     const values = [];
@@ -283,6 +290,7 @@ const crearSesionComunidad = async (req, res) => {
     addField('descripcion_duda', descripcion ?? nombreFinal);
     addField('capacidad_max', capacidad_max ?? 30);
     addField('duracion_min', duracion_min ?? 60);
+    addField('meet_link', meet_link ?? null);
     addField('estado', 'pendiente');
 
     if (fields.length === 0) {

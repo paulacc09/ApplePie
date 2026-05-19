@@ -4,6 +4,16 @@ import LogoApplePie from '../components/LogoApplePie.jsx'
 import ModalSubirRecurso from '../components/ModalSubirRecurso.jsx'
 import { api } from '../api/axios.js'
 import { getErrorMessage } from '../lib/apiError.js'
+import { generarMeetLink } from '../utils/meetLink.js'
+
+const EVENTO_INICIAL = {
+  nombre: '',
+  descripcion: '',
+  fecha: '',
+  hora: '',
+  modalidad: 'virtual',
+  capacidad_max: 30,
+}
 
 function avatarBg(role) {
   if (role === 'mentora') return 'bg-olive'
@@ -94,6 +104,11 @@ export default function ComunidadDetalle() {
   const [resourceFilter, setResourceFilter] = useState('Todos')
   const [showModalRecurso, setShowModalRecurso] = useState(false)
   const [sesionesCalendario, setSesionesCalendario] = useState([])
+  const [showModalEvento, setShowModalEvento] = useState(false)
+  const [eventoForm, setEventoForm] = useState(EVENTO_INICIAL)
+  const [creandoEvento, setCreandoEvento] = useState(false)
+  const [eventoError, setEventoError] = useState('')
+  const [eventoSuccess, setEventoSuccess] = useState('')
 
   const recargarRecursosGrupo = useCallback(async () => {
     if (!id) return
@@ -207,25 +222,51 @@ export default function ComunidadDetalle() {
     }
   }
 
-  async function handleCrearEvento() {
+  function abrirModalEvento() {
+    setEventoForm(EVENTO_INICIAL)
+    setEventoError('')
+    setEventoSuccess('')
+    setShowModalEvento(true)
+  }
+
+  function cerrarModalEvento() {
+    if (creandoEvento) return
+    setShowModalEvento(false)
+    setEventoError('')
+  }
+
+  async function handleCrearEvento(e) {
+    e.preventDefault()
     if (!id) return
-    const ahora = new Date()
-    const fecha = ahora.toISOString().slice(0, 10)
-    const hora = ahora.toTimeString().slice(0, 5)
+    setEventoError('')
+    setEventoSuccess('')
+
+    if (!eventoForm.nombre.trim() || !eventoForm.fecha || !eventoForm.hora) {
+      setEventoError('Completa nombre, fecha y hora.')
+      return
+    }
+
+    setCreandoEvento(true)
     try {
+      const meetLink = eventoForm.modalidad === 'virtual' ? generarMeetLink() : null
       await api.post('/api/comunidades/' + id + '/sesiones', {
-        nombre: 'Nuevo evento',
-        fecha,
-        hora,
-        modalidad: 'virtual',
-        descripcion: 'Evento creado desde la comunidad',
-        capacidad_max: 30,
+        nombre: eventoForm.nombre.trim(),
+        fecha: eventoForm.fecha,
+        hora: eventoForm.hora,
+        modalidad: eventoForm.modalidad,
+        descripcion: eventoForm.descripcion.trim(),
+        capacidad_max: Number(eventoForm.capacidad_max) || 30,
+        meet_link: meetLink,
       })
       const { data } = await api.get(`/api/comunidades/${id}/sesiones`)
       setSesionesCalendario(Array.isArray(data) ? data : [])
-      window.alert('Evento creado correctamente.')
+      setShowModalEvento(false)
+      setEventoForm(EVENTO_INICIAL)
+      setEventoSuccess('Evento creado correctamente.')
     } catch (e) {
-      window.alert(getErrorMessage(e))
+      setEventoError(getErrorMessage(e))
+    } finally {
+      setCreandoEvento(false)
     }
   }
 
@@ -365,6 +406,11 @@ export default function ComunidadDetalle() {
                   <span key={d}>{d}</span>
                 ))}
               </div>
+              {eventoSuccess ? (
+                <p className="mt-3 rounded-xl border border-olive-light bg-mint px-3 py-2 text-sm text-olive">
+                  {eventoSuccess}
+                </p>
+              ) : null}
               <div className="mt-2 space-y-2">
                 {sesionesCalendario.length === 0 ? (
                   <p className="rounded-lg border border-line bg-cream px-3 py-3 text-center text-sm text-stone">
@@ -380,17 +426,32 @@ export default function ComunidadDetalle() {
                       ? fh.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
                       : '—'
                     const nombreSesion = s.nombre ?? s.titulo ?? s.asignatura ?? 'Sesión'
+                    const modalidad = s.modalidad ?? (s.meet_link ? 'virtual' : 'presencial')
+                    const icono = modalidad === 'virtual' ? '🎥' : '📅'
                     return (
                       <div
                         key={s.id}
                         className="rounded-lg border-l-4 border-rose bg-rose-light px-3 py-2 text-sm text-ink"
                       >
-                        <span className="rounded bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
-                          {s.estado ?? 'Sesión'}
-                        </span>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="rounded bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
+                            {icono} {modalidad}
+                          </span>
+                          {s.meet_link ? (
+                            <a
+                              href={s.meet_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-lg bg-olive px-3 py-1 text-xs font-medium text-white hover:bg-olive-deep"
+                            >
+                              Unirse
+                            </a>
+                          ) : null}
+                        </div>
                         <p className="mt-1">
                           {nombreSesion} — {fecha} {hora}
                         </p>
+                        {s.descripcion ? <p className="mt-1 text-xs text-stone">{s.descripcion}</p> : null}
                       </div>
                     )
                   })
@@ -398,7 +459,7 @@ export default function ComunidadDetalle() {
               </div>
               <button
                 type="button"
-                onClick={handleCrearEvento}
+                onClick={abrirModalEvento}
                 className="mt-6 w-full rounded-xl bg-rose px-5 py-2 text-sm font-medium text-ink shadow-sm hover:bg-rose-dark"
               >
                 CREAR EVENTO
@@ -561,6 +622,122 @@ export default function ComunidadDetalle() {
         <p className="rounded-2xl border border-line bg-warm px-6 py-8 text-center text-stone">
           No se encontró la comunidad.
         </p>
+      ) : null}
+
+      {showModalEvento ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-line bg-cream p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="font-display text-lg text-ink">Crear nuevo evento</h2>
+              <button
+                type="button"
+                onClick={cerrarModalEvento}
+                disabled={creandoEvento}
+                className="text-sm text-faded transition-colors hover:text-rose-dark disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form className="space-y-4" onSubmit={handleCrearEvento}>
+              <label className="block text-sm font-medium text-ink">
+                Nombre
+                <input
+                  type="text"
+                  required
+                  value={eventoForm.nombre}
+                  onChange={(e) => setEventoForm((f) => ({ ...f, nombre: e.target.value }))}
+                  className="mt-1 w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
+                  placeholder="Título del evento"
+                />
+              </label>
+
+              <label className="block text-sm font-medium text-ink">
+                Descripción
+                <textarea
+                  rows={3}
+                  value={eventoForm.descripcion}
+                  onChange={(e) => setEventoForm((f) => ({ ...f, descripcion: e.target.value }))}
+                  className="mt-1 w-full resize-none rounded-xl border border-rose bg-white px-4 py-3 text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
+                  placeholder="Detalles opcionales"
+                />
+              </label>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-ink">
+                  Fecha
+                  <input
+                    type="date"
+                    required
+                    value={eventoForm.fecha}
+                    onChange={(e) => setEventoForm((f) => ({ ...f, fecha: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
+                  />
+                </label>
+
+                <label className="block text-sm font-medium text-ink">
+                  Hora
+                  <input
+                    type="time"
+                    required
+                    value={eventoForm.hora}
+                    onChange={(e) => setEventoForm((f) => ({ ...f, hora: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-ink">
+                  Modalidad
+                  <select
+                    value={eventoForm.modalidad}
+                    onChange={(e) => setEventoForm((f) => ({ ...f, modalidad: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
+                  >
+                    <option value="virtual">Virtual</option>
+                    <option value="presencial">Presencial</option>
+                  </select>
+                </label>
+
+                <label className="block text-sm font-medium text-ink">
+                  Capacidad
+                  <input
+                    type="number"
+                    min="1"
+                    value={eventoForm.capacidad_max}
+                    onChange={(e) => setEventoForm((f) => ({ ...f, capacidad_max: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
+                  />
+                </label>
+              </div>
+
+              {eventoError ? (
+                <p className="rounded-xl border border-rose bg-blush px-4 py-3 text-sm text-rose-dark">
+                  {eventoError}
+                </p>
+              ) : null}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={cerrarModalEvento}
+                  disabled={creandoEvento}
+                  className="rounded-xl border border-rose bg-white px-4 py-2 text-sm font-medium text-rose-dark hover:bg-rose-light disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={creandoEvento}
+                  className="rounded-xl bg-rose px-4 py-2 text-sm font-medium text-ink shadow-sm hover:bg-rose-dark disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {creandoEvento ? 'Creando...' : 'Crear evento'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       ) : null}
 
       <ModalSubirRecurso
