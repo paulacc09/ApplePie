@@ -1,6 +1,6 @@
 # Apple Pie — Backend
 
-API REST para la plataforma educativa **Apple Pie**: comunidades, foro por comunidad, recursos, mentorías (sesiones), pagos, reportes, administración básica de usuarios, perfil y notificaciones. Proyecto académico — Universidad de Ibagué.
+API REST para la plataforma educativa **Apple Pie**: comunidades, eventos de comunidad, agenda global, foro global y por comunidad, recursos, mentorías (sesiones), pagos, reportes, administración básica de usuarios, perfil y notificaciones. Proyecto académico — Universidad de Ibagué.
 
 ## Stack
 
@@ -59,6 +59,8 @@ Prefijo común: raíz del servidor (ej. `http://localhost:3000`).
 | Montaje | Archivo | Contenido resumido |
 |---------|---------|-------------------|
 | `/api/auth` | `routes/auth.js` | Registro, login, MFA (generar/verificar admin, validar) |
+| `/api/eventos` | `routes/eventos_global.js` | Agenda global del usuario: eventos de comunidad + sesiones de mentoría |
+| `/api/comunidades/:id/eventos` | `routes/eventos_comunidad.js` | Eventos de una comunidad (listar y crear) |
 | `/api/comunidades` | `routes/comunidades.js` | CRUD listado/detalle, crear (token), unirse/salir |
 | `/api/recursos` | `routes/recursos.js` | Listado y alta con archivo (token) |
 | `/api/mentoras` | `routes/mentoras.js` | Listado público, detalle, postularse (token), actualizar perfil |
@@ -68,6 +70,7 @@ Prefijo común: raíz del servidor (ej. `http://localhost:3000`).
 | `/api/admin` | `routes/admin.js` | Listar usuarios, cambiar rol, activar/desactivar (admin) |
 | `/api/notificaciones` | `routes/notificaciones.js` | Listado y marcar leídas |
 | `/api/perfil` | `routes/perfil.js` | GET/PUT perfil, PATCH foto |
+| `/api/foro` | `routes/foro_global.js` | Foro global (`comunidad_id IS NULL`) |
 | `/api` | `routes/foro.js` | Rutas que empiezan por `/comunidades/:comunidadId/foro`… (foro **por comunidad**) |
 
 **Salud:** `GET /api/health`, `GET /` — JSON de bienvenida con enlaces básicos.
@@ -90,14 +93,27 @@ Prefijo común: raíz del servidor (ej. `http://localhost:3000`).
 - `POST /api/comunidades/:id/unirse` — token
 - `DELETE /api/comunidades/:id/salir` — token
 
-### Foro (por comunidad; router montado en `/api`)
+### Eventos y agenda
+
+- `GET /api/comunidades/:id/eventos` — token; eventos de una comunidad, ordenados por fecha/hora.
+- `POST /api/comunidades/:id/eventos` — token; crea evento en `eventos_comunidad`.
+- `GET /api/eventos` — token; agenda global del usuario. Une:
+  - Eventos de comunidades donde el usuario es miembro (`eventos_comunidad`).
+  - Sesiones de mentoría donde el usuario es mentora o estudiante (`sesiones`).
+
+Los eventos de comunidad guardan `meet_link` como opcional. El frontend actualmente crea eventos virtuales con `meet_link = null` y abre Google Calendar con `vcon=meet` para que la usuaria programe una sala real.
+
+### Foro global
+
+- `GET /api/foro` — token; publicaciones globales (`publicaciones_foro.comunidad_id IS NULL`).
+- `POST /api/foro` — token; crea publicación global.
+
+### Foro por comunidad (router montado en `/api`)
 
 - `GET /api/comunidades/:comunidadId/foro`
 - `POST /api/comunidades/:comunidadId/foro` — token
 - `DELETE /api/comunidades/:comunidadId/foro/:id` — token
 - `GET/POST …/foro/:publicacionId/respuestas` y `DELETE …/respuestas/:id`
-
-> **Nota:** El foro **global** (`GET/POST /api/foro`) lo consume el frontend en `Foro.jsx`; si aún no está implementado en este repo, hay que añadirlo aparte del foro por comunidad.
 
 ### Recursos
 
@@ -174,11 +190,11 @@ Registro de usuario, unirse a comunidad, mensajes y notificaciones — ver `src/
 | `Home.jsx`, `Comunidades.jsx` | `GET /api/comunidades` | Conectado. |
 | `Comunidades.jsx` | `POST /api/comunidades` | Conectado con token. |
 | `ComunidadCard.jsx` | `POST /api/comunidades/:id/unirse` | Conectado con token. |
-| `ComunidadDetalle.jsx` | `GET /api/comunidades/:id`, `GET/POST /api/comunidades/:id/foro` | Parcial. El backend sí tiene detalle y foro por comunidad. El front también llama rutas legacy `/api/grupos/:id/...` y `POST /api/comunidades/:id/sesiones`, que no están montadas actualmente. |
-| `Foro.jsx` | `GET/POST /api/foro` | Pendiente. El backend actual no monta foro global; solo foro por comunidad. |
+| `ComunidadDetalle.jsx` | `GET /api/comunidades/:id`, `GET /api/comunidades/:id/miembros`, `GET/POST /api/comunidades/:id/foro`, `GET/POST /api/comunidades/:id/eventos` | Conectado. El calendario usa `eventos_comunidad`, separado de `sesiones` de mentoría. |
+| `Foro.jsx` | `GET/POST /api/foro` | Conectado. Foro global con `comunidad_id IS NULL`. |
 | `Repositorio.jsx`, `ModalSubirRecurso.jsx` | `GET /api/recursos`, `POST /api/recursos`, `GET /api/recursos/:id`, `DELETE /api/recursos/:id` | Conectado; subida usa multipart y Cloudinary. |
 | `Mentoria.jsx`, `PerfilMentora.jsx` | `GET /api/mentoras`, `POST /api/mentoras/postularse`, `GET /api/mentoras/:id`, `PUT /api/mentoras/:id` | Conectado para perfil/listado/postulación. Tarifas y pago del perfil aún no tienen endpoints dedicados. |
-| `MiAgenda.jsx` | `GET /api/sesiones/estudiante` | Conectado. Calendario del estudiante usa sesiones reales. |
+| `MiAgenda.jsx` | `GET /api/eventos` | Conectado. Agenda global unificada con eventos de comunidad y sesiones de mentoría. |
 | `AgendaMentora.jsx`, `DashboardMentora.jsx` | `GET /api/sesiones/mentora`, `GET /api/sesiones/mentora?estado=...`, `PUT /api/sesiones/:id` | Conectado. Confirmar sesión usa `PUT`. |
 | `PerfilMentora.jsx` / `ModalPago.jsx` | `POST /api/pagos` | Parcial. Backend existe, pero modal del front aún no crea pago real ni sesión real. |
 | Admin usuarios | `GET /api/admin/usuarios`, `PATCH /api/admin/usuarios/:id/rol`, `PATCH /api/admin/usuarios/:id/activo` | Parcial. Front actual lista usuarios, pero algunas acciones usan contratos distintos. |
