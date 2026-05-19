@@ -5,7 +5,7 @@ import { getErrorMessage } from '../lib/apiError.js'
 const inputBase =
   'w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose'
 
-export default function ModalSubirRecurso({ open, onClose, onUploaded }) {
+export default function ModalSubirRecurso({ open, onClose, onUploaded, comunidadId }) {
   const fileInputRef = useRef(null)
   const tituloId = useId()
   const descId = useId()
@@ -83,6 +83,9 @@ export default function ModalSubirRecurso({ open, onClose, onUploaded }) {
       formData.append('semestre', semestre)
       formData.append('tipo', tipo)
       formData.append('acceso', acceso)
+      if (comunidadId) {
+        formData.append('comunidad_id', String(comunidadId))
+      }
       formData.append('archivo', archivo)
 
       await api.post('/api/recursos', formData, {

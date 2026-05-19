@@ -63,10 +63,15 @@ const subirRecurso = async (req, res) => {
 
 const getRecursos = async (req, res) => {
   try {
-    const { asignatura, semestre, tipo, visibilidad } = req.query;
+    const { asignatura, semestre, tipo, visibilidad, comunidad_id } = req.query;
 
     const conditions = ['activo = 1'];
     const params = [];
+
+    if (comunidad_id !== undefined && comunidad_id !== '') {
+      conditions.push('comunidad_id = ?');
+      params.push(comunidad_id);
+    }
 
     if (asignatura) {
       conditions.push('asignatura = ?');

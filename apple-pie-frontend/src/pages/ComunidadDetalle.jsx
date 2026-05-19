@@ -8,6 +8,7 @@ import { getErrorMessage } from '../lib/apiError.js'
 function avatarBg(role) {
   if (role === 'mentora') return 'bg-olive'
   if (role === 'moderadora') return 'bg-rose'
+  if (role === 'creadora') return 'bg-olive'
   return 'bg-faded'
 }
 
@@ -45,9 +46,10 @@ function normalizeMembersList(data) {
 }
 
 function mapMember(raw) {
+  const nombre = [raw.nombre, raw.apellido].filter(Boolean).join(' ').trim()
   return {
     id: raw.id,
-    name: raw.nombre ?? raw.name ?? '',
+    name: nombre || raw.name || 'Usuario',
     role: raw.rol ?? raw.role ?? 'estudiante',
     info: (raw.carrera ?? '') + (raw.semestre ? ` · ${raw.semestre}vo` : ''),
     mentora_id: raw.mentora_id ?? null,
@@ -91,11 +93,12 @@ export default function ComunidadDetalle() {
   const [publishing, setPublishing] = useState(false)
   const [resourceFilter, setResourceFilter] = useState('Todos')
   const [showModalRecurso, setShowModalRecurso] = useState(false)
+  const [sesionesCalendario, setSesionesCalendario] = useState([])
 
   const recargarRecursosGrupo = useCallback(async () => {
     if (!id) return
     try {
-      const { data } = await api.get('/api/grupos/' + id + '/recursos')
+      const { data } = await api.get(`/api/recursos?comunidad_id=${id}`)
       setRecursos(normalizeRecursosList(data).map(mapRecurso))
     } catch {
       setRecursos([])
@@ -139,7 +142,7 @@ export default function ComunidadDetalle() {
       }
       if (tab === 'miembros') {
         try {
-          const { data } = await api.get(`/api/grupos/${id}/miembros`)
+          const { data } = await api.get(`/api/comunidades/${id}/miembros`)
           if (!cancelled) setMembers(normalizeMembersList(data).map(mapMember))
         } catch {
           if (!cancelled) setMembers([])
@@ -148,7 +151,7 @@ export default function ComunidadDetalle() {
       }
       if (tab === 'recursos') {
         try {
-          const { data } = await api.get(`/api/grupos/${id}/recursos`)
+          const { data } = await api.get(`/api/recursos?comunidad_id=${id}`)
           if (!cancelled) setRecursos(normalizeRecursosList(data).map(mapRecurso))
         } catch {
           if (!cancelled) setRecursos([])
@@ -157,9 +160,10 @@ export default function ComunidadDetalle() {
       }
       if (tab === 'calendario') {
         try {
-          await api.get(`/api/grupos/${id}/sesiones`)
+          const { data } = await api.get(`/api/comunidades/${id}/sesiones`)
+          if (!cancelled) setSesionesCalendario(Array.isArray(data) ? data : [])
         } catch {
-          /* tab se mantiene visual como está */
+          if (!cancelled) setSesionesCalendario([])
         }
       }
     }
@@ -353,16 +357,34 @@ export default function ComunidadDetalle() {
                 ))}
               </div>
               <div className="mt-2 space-y-2">
-                <div className="rounded-lg border-l-4 border-rose bg-rose-light px-3 py-2 text-sm text-ink">
-                  <span className="rounded bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
-                    Sesión grupal
-                  </span>
-                  <p className="mt-1">Repaso integral — 16:00</p>
-                </div>
-                <div className="rounded-lg border-l-4 border-olive bg-mint px-3 py-2 text-sm text-ink">
-                  <span className="rounded bg-mint px-2 py-0.5 text-xs font-medium text-olive">Taller grupal</span>
-                  <p className="mt-1">Estrategias de estudio — 10:00</p>
-                </div>
+                {sesionesCalendario.length === 0 ? (
+                  <p className="rounded-lg border border-line bg-cream px-3 py-3 text-center text-sm text-stone">
+                    No hay sesiones registradas para esta comunidad.
+                  </p>
+                ) : (
+                  sesionesCalendario.map((s) => {
+                    const fh = s.fecha_hora ? new Date(s.fecha_hora) : null
+                    const hora = fh
+                      ? fh.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+                      : '—'
+                    const fecha = fh
+                      ? fh.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
+                      : '—'
+                    return (
+                      <div
+                        key={s.id}
+                        className="rounded-lg border-l-4 border-rose bg-rose-light px-3 py-2 text-sm text-ink"
+                      >
+                        <span className="rounded bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
+                          {s.estado ?? 'Sesión'}
+                        </span>
+                        <p className="mt-1">
+                          {s.asignatura ?? 'Sesión'} — {fecha} {hora}
+                        </p>
+                      </div>
+                    )
+                  })
+                )}
               </div>
               <button
                 type="button"
@@ -377,7 +399,7 @@ export default function ComunidadDetalle() {
           {tab === 'miembros' ? (
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2">
-                {['todos', 'mentora', 'moderadora', 'estudiante'].map((r) => (
+                {['todos', 'creadora', 'mentora', 'moderadora', 'estudiante'].map((r) => (
                   <button
                     key={r}
                     type="button"
@@ -535,6 +557,7 @@ export default function ComunidadDetalle() {
         open={showModalRecurso}
         onClose={cerrarModalRecursoYRecargar}
         onUploaded={recargarRecursosGrupo}
+        comunidadId={id}
       />
     </div>
   )

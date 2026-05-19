@@ -90,8 +90,9 @@ const crearComunidad = async (req, res) => {
     const comunidadId = result.insertId;
     try {
       await pool.execute(
-        'INSERT INTO miembros_comunidad (usuario_id, comunidad_id, rol) VALUES (?, ?, ?)',
-        [req.usuario.id, comunidadId, 'creadora']
+        `INSERT INTO miembros_comunidad (comunidad_id, usuario_id, rol, fecha_ingreso, activo)
+         VALUES (?, ?, 'creadora', NOW(), 1)`,
+        [comunidadId, req.usuario.id]
       );
     } catch (err) {
       console.error('Error al agregar miembro:', err.message, err.sqlMessage);
@@ -144,6 +145,59 @@ const unirseAComunidad = async (req, res) => {
   }
 };
 
+const getMiembrosComunidad = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [comunidad] = await pool.query(
+      'SELECT id FROM comunidades WHERE id = ? AND activa = 1',
+      [id]
+    );
+
+    if (comunidad.length === 0) {
+      return res.status(404).json({ error: 'Comunidad no encontrada' });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT u.id, u.nombre, u.apellido, u.email, mc.rol
+       FROM miembros_comunidad mc
+       JOIN usuarios u ON u.id = mc.usuario_id
+       WHERE mc.comunidad_id = ? AND mc.activo = 1`,
+      [id]
+    );
+
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error en getMiembrosComunidad:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+const getSesionesComunidad = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [comunidad] = await pool.query(
+      'SELECT id FROM comunidades WHERE id = ? AND activa = 1',
+      [id]
+    );
+
+    if (comunidad.length === 0) {
+      return res.status(404).json({ error: 'Comunidad no encontrada' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT * FROM sesiones WHERE comunidad_id = ? ORDER BY fecha_hora ASC',
+      [id]
+    );
+
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error en getSesionesComunidad:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 const salirDeComunidad = async (req, res) => {
   try {
     const { id } = req.params;
@@ -173,6 +227,8 @@ const salirDeComunidad = async (req, res) => {
 module.exports = {
   getComunidades,
   getComunidadById,
+  getMiembrosComunidad,
+  getSesionesComunidad,
   crearComunidad,
   unirseAComunidad,
   salirDeComunidad,
