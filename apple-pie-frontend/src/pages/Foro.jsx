@@ -17,7 +17,18 @@ function mapPost(raw) {
     handle: '@' + (raw.autor_username ?? raw.autor_id ?? ''),
     time: raw.created_at ?? '',
     text: raw.contenido ?? raw.texto ?? '',
-    replies: [],
+    me_gusta: Number(raw.me_gusta ?? 0),
+    replies: Array.isArray(raw.replies) ? raw.replies : [],
+  }
+}
+
+function mapReply(raw) {
+  const autor = [raw.autor_nombre, raw.autor_apellido, raw.nombre, raw.apellido].filter(Boolean).join(' ').trim()
+  return {
+    id: raw.id,
+    name: autor || 'Usuario',
+    text: raw.contenido ?? raw.texto ?? '',
+    time: raw.created_at ?? '',
   }
 }
 
@@ -27,6 +38,7 @@ export default function Foro() {
   const [publishing, setPublishing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [respondiendo, setRespondiendo] = useState({})
 
   const loadPosts = useCallback(async (opts = { withSkeleton: true }) => {
     if (opts.withSkeleton) {
@@ -102,6 +114,52 @@ export default function Foro() {
     }
   }
 
+  async function cargarRespuestas(postId) {
+    try {
+      const { data } = await api.get(`/api/foro/${postId}/respuestas`)
+      const replies = Array.isArray(data) ? data.map(mapReply) : []
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, replies } : p)))
+    } catch (e) {
+      console.error('Error cargando respuestas:', e)
+    }
+  }
+
+  async function handleMeGusta(postId) {
+    try {
+      await api.post(`/api/foro/${postId}/me-gusta`)
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, me_gusta: p.me_gusta + 1 } : p)))
+    } catch (e) {
+      console.error('Error al dar me gusta:', e)
+    }
+  }
+
+  async function handleResponder(postId) {
+    const contenido = respondiendo[postId]
+    if (!contenido?.trim()) return
+
+    try {
+      await api.post(`/api/foro/${postId}/respuestas`, { contenido })
+      setRespondiendo((prev) => ({ ...prev, [postId]: '' }))
+      await cargarRespuestas(postId)
+    } catch (e) {
+      console.error('Error al responder:', e)
+    }
+  }
+
+  function toggleResponder(postId) {
+    if (respondiendo[postId] !== undefined) {
+      setRespondiendo((prev) => {
+        const next = { ...prev }
+        delete next[postId]
+        return next
+      })
+      return
+    }
+
+    setRespondiendo((prev) => ({ ...prev, [postId]: '' }))
+    void cargarRespuestas(postId)
+  }
+
   return (
     <div className="mx-auto w-full max-w-4xl rounded-2xl border border-line bg-warm px-6 py-6 shadow-card">
       <header className="mb-6">
@@ -162,17 +220,37 @@ export default function Foro() {
                   </div>
                   <p className="mt-2 text-sm text-ink">{p.text}</p>
                   <div className="mt-3 flex gap-4 text-xs text-faded">
-                    <button type="button" className="hover:text-rose-dark">
+                    <button type="button" className="hover:text-rose-dark" onClick={() => toggleResponder(p.id)}>
                       💬 Responder
                     </button>
-                    <button type="button" className="hover:text-rose-dark">
-                      🤍 Me gusta
+                    <button type="button" className="hover:text-rose-dark" onClick={() => handleMeGusta(p.id)}>
+                      🤍 Me gusta {p.me_gusta > 0 ? `(${p.me_gusta})` : ''}
                     </button>
                   </div>
+                  {respondiendo[p.id] !== undefined ? (
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                      <textarea
+                        className="flex-1 resize-none rounded-lg border border-rose bg-white px-3 py-2 text-sm text-ink placeholder:text-faded focus:outline-none focus:ring-2 focus:ring-rose"
+                        rows={2}
+                        placeholder="Escribe tu respuesta..."
+                        value={respondiendo[p.id]}
+                        onChange={(e) =>
+                          setRespondiendo((prev) => ({ ...prev, [p.id]: e.target.value }))
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleResponder(p.id)}
+                        className="rounded-lg bg-rose px-4 py-2 text-sm font-medium text-white hover:bg-rose-dark"
+                      >
+                        Enviar
+                      </button>
+                    </div>
+                  ) : null}
                   {p.replies?.length ? (
                     <div className="ml-2 mt-3 border-l-2 border-line pl-3">
                       {p.replies.map((r, idx) => (
-                        <p key={`${r.text}-${idx}`} className="text-sm text-stone">
+                        <p key={r.id ?? `${r.text}-${idx}`} className="text-sm text-stone">
                           <span className="font-medium text-ink">{r.name}: </span>
                           {r.text}
                         </p>
