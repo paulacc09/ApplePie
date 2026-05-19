@@ -12,19 +12,35 @@ const tabs = [
   { id: 'sobre', label: 'Sobre mí' },
 ]
 
+function splitTags(text) {
+  if (Array.isArray(text)) return text.filter(Boolean)
+  if (typeof text !== 'string' || !text.trim()) return []
+  return text
+    .split(/[·,]/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+}
+
 function mapMentoraProfile(raw) {
-  const materiasVal = raw.asignatura ?? raw.materias
+  const materiasVal = raw.especialidades ?? raw.asignatura ?? raw.materias
   const materiasStr = Array.isArray(materiasVal) ? materiasVal.join(', ') : (materiasVal ?? '')
-  const tagsRaw = raw.tags ?? []
-  const tags = Array.isArray(tagsRaw) ? tagsRaw : []
+  const tags = splitTags(raw.tags ?? materiasVal)
+  const nombre = raw.nombre ?? ''
+  const apellido = raw.apellido ?? ''
+  const experiencia = raw.experiencia ?? ''
+  const especialidades = splitTags(raw.especialidades)
 
   return {
     usuario_id: raw.usuario_id,
-    nombre: raw.nombre ?? '',
-    carrera: raw.carrera ?? raw.universidad ?? '',
-    desc: raw.descripcion ?? raw.bio ?? raw.bio_mentora ?? '',
-    rating: raw.rating ?? raw.calificacion ?? 0,
-    horas: raw.horas_totales ?? raw.horas ?? raw.total_sesiones ?? 0,
+    nombre,
+    apellido,
+    nombreCompleto: [nombre, apellido].filter(Boolean).join(' '),
+    carrera: raw.programa ?? raw.carrera ?? raw.universidad ?? '',
+    bio: raw.bio_mentora ?? raw.bio ?? raw.descripcion ?? '',
+    experiencia,
+    especialidades,
+    rating: raw.calificacion ?? raw.rating ?? 0,
+    totalSesiones: raw.total_sesiones ?? raw.horas_totales ?? raw.horas ?? 0,
     materias: materiasStr,
     tags,
     contacto: {
@@ -90,7 +106,7 @@ export default function PerfilMentora() {
     return String(uid) === String(mentora.usuario_id)
   }, [user, mentora])
 
-  const inicial = (mentora?.nombre || '?').trim().charAt(0).toUpperCase()
+  const inicial = (mentora?.nombreCompleto || mentora?.nombre || '?').trim().charAt(0).toUpperCase()
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 pb-10">
@@ -130,17 +146,17 @@ export default function PerfilMentora() {
                 {inicial}
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="font-display text-xl text-ink">{mentora.nombre}</h1>
+                <h1 className="font-display text-xl text-ink">{mentora.nombreCompleto || mentora.nombre}</h1>
                 <p className="text-sm text-stone">{mentora.carrera}</p>
                 <p className="mt-2 text-sm text-stone">
                   <span aria-hidden="true">⭐</span> {mentora.rating} · <span className="mx-1">·</span> 📚{' '}
-                  {mentora.materias} · 🕐 {mentora.horas} horas
+                  {mentora.materias || 'Sin especialidades'} · 🕐 {mentora.totalSesiones} sesiones
                 </p>
-                <p className="mt-3 text-sm italic text-stone">{mentora.desc}</p>
+                {mentora.bio ? <p className="mt-3 text-sm italic text-stone">{mentora.bio}</p> : null}
                 <div className="mt-3 flex flex-wrap gap-4 text-xs text-faded">
-                  <span>📍 {mentora.contacto.lugar}</span>
-                  <span>✉️ {mentora.contacto.email}</span>
-                  <span>🕐 {mentora.contacto.horario}</span>
+                  {mentora.contacto.lugar ? <span>📍 {mentora.contacto.lugar}</span> : null}
+                  {mentora.contacto.email ? <span>✉️ {mentora.contacto.email}</span> : null}
+                  {mentora.contacto.horario ? <span>🕐 {mentora.contacto.horario}</span> : null}
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {mentora.tags.map((t) => (
@@ -287,30 +303,30 @@ export default function PerfilMentora() {
           {tab === 'sobre' ? (
             <div className="space-y-6 rounded-2xl border border-line bg-white p-6">
               <section>
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-olive">Bio</h4>
+                <p className="text-sm text-ink">{mentora.bio || 'Sin bio registrada.'}</p>
+              </section>
+              <section>
                 <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-olive">Experiencia</h4>
-                <p className="text-sm text-ink">
-                  Más de 4 años dando tutorías en cálculo y física básica. He acompañado a más de 60 estudiantes en
-                  parciales y proyectos.
-                </p>
+                <p className="text-sm text-ink">{mentora.experiencia || 'Sin experiencia registrada.'}</p>
               </section>
               <section>
                 <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-olive">Especialidades</h4>
-                <ul className="list-inside list-disc space-y-1 text-sm text-ink marker:text-rose">
-                  <li>Integrales y series</li>
-                  <li>Mecánica newtoniana</li>
-                  <li>Álgebra lineal aplicada</li>
-                </ul>
+                {mentora.especialidades.length > 0 ? (
+                  <ul className="list-inside list-disc space-y-1 text-sm text-ink marker:text-rose">
+                    {mentora.especialidades.map((especialidad) => (
+                      <li key={especialidad}>{especialidad}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-ink">Sin especialidades registradas.</p>
+                )}
               </section>
               <section>
-                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-olive">Logros destacados</h4>
-                <ul className="space-y-1 text-sm text-ink">
-                  <li>
-                    <span className="text-olive">·</span> Mentora destacada 2024
-                  </li>
-                  <li>
-                    <span className="text-olive">·</span> 100% de estudiantes aprobadas en su primer parcial conmigo
-                  </li>
-                </ul>
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-olive">Resumen</h4>
+                <p className="text-sm text-ink">
+                  Calificación: {mentora.rating} · Total de sesiones: {mentora.totalSesiones}
+                </p>
               </section>
             </div>
           ) : null}

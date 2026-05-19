@@ -32,7 +32,7 @@ const getMentoras = async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT
-         COALESCE(pm.id, u.id) AS id,
+         u.id AS id,
          pm.id AS perfil_id,
          u.id AS usuario_id,
          pm.bio_mentora,
@@ -62,11 +62,29 @@ const getMentoraById = async (req, res) => {
     const { id } = req.params;
 
     const [rows] = await pool.query(
-      `SELECT pm.*, u.nombre, u.foto_perfil
-       FROM perfiles_mentora pm
-       INNER JOIN usuarios u ON u.id = pm.usuario_id
-       WHERE pm.id = ? AND pm.activa = 1`,
-      [id]
+      `SELECT
+         u.id AS id,
+         pm.id AS perfil_id,
+         u.id AS usuario_id,
+         pm.bio_mentora,
+         pm.experiencia,
+         pm.especialidades,
+         pm.logros,
+         pm.calificacion,
+         pm.total_sesiones,
+         pm.activa,
+         u.nombre,
+         u.apellido,
+         u.email,
+         u.universidad,
+         u.programa,
+         u.bio,
+         u.foto_perfil
+       FROM usuarios u
+       LEFT JOIN perfiles_mentora pm ON pm.usuario_id = u.id AND pm.activa = 1
+       WHERE u.rol = 'mentora' AND (u.id = ? OR pm.id = ?)
+       LIMIT 1`,
+      [id, id]
     );
 
     if (rows.length === 0) {
