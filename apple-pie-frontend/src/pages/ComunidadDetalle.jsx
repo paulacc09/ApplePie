@@ -12,7 +12,25 @@ const EVENTO_INICIAL = {
   hora: '',
   modalidad: 'virtual',
   capacidad_max: 30,
-  meet_link: '',
+}
+
+function generarLinkCalendar(nombre, fecha, hora, descripcion) {
+  const fechaHoraLocal = new Date(`${fecha}T${hora}:00`)
+  const pad = (n) => String(n).padStart(2, '0')
+  const formatGCal = (d) =>
+    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
+    `T${pad(d.getHours())}${pad(d.getMinutes())}00`
+  const fechaFin = new Date(fechaHoraLocal.getTime() + 60 * 60 * 1000)
+
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: nombre,
+    dates: `${formatGCal(fechaHoraLocal)}/${formatGCal(fechaFin)}`,
+    details: descripcion || 'Evento de comunidad Apple Pie',
+    add: '',
+  })
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}&vcon=meet`
 }
 
 function avatarBg(role) {
@@ -278,20 +296,27 @@ export default function ComunidadDetalle() {
 
     setCreandoEvento(true)
     try {
+      const modalidad = eventoForm.modalidad || 'virtual'
+      const descripcion = eventoForm.descripcion.trim()
       const body = {
         nombre: eventoForm.nombre.trim(),
-        descripcion: eventoForm.descripcion.trim(),
+        descripcion,
         fecha: eventoForm.fecha,
         hora: eventoForm.hora,
-        modalidad: eventoForm.modalidad || 'virtual',
+        modalidad,
         capacidad_max: Number(eventoForm.capacidad_max) || 30,
-        meet_link: eventoForm.modalidad !== 'presencial' ? eventoForm.meet_link.trim() || null : null,
+        meet_link: null,
       }
       await api.post(`/api/comunidades/${id}/eventos`, body)
       await cargarEventos()
       setShowModalEvento(false)
       setEventoForm(EVENTO_INICIAL)
       setEventoSuccess('Evento creado correctamente.')
+
+      if (modalidad !== 'presencial') {
+        const linkCal = generarLinkCalendar(body.nombre, body.fecha, body.hora, descripcion)
+        window.open(linkCal, '_blank', 'noopener,noreferrer')
+      }
     } catch (e) {
       setEventoError(getErrorMessage(e))
     } finally {
@@ -753,27 +778,10 @@ export default function ComunidadDetalle() {
               </div>
 
               {eventoForm.modalidad !== 'presencial' ? (
-                <div>
-                  <label className="text-sm font-medium text-ink">Link de Meet</label>
-                  <a
-                    href="https://meet.google.com/new"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mb-2 mt-1 block rounded-xl bg-olive px-3 py-2 text-center text-xs text-white hover:opacity-80"
-                  >
-                    1. Crear sala en Google Meet →
-                  </a>
-                  <input
-                    type="url"
-                    value={eventoForm.meet_link || ''}
-                    onChange={(e) => setEventoForm((f) => ({ ...f, meet_link: e.target.value }))}
-                    className="w-full rounded-xl border border-rose bg-white px-4 py-3 text-sm text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
-                    placeholder="2. Pega aquí el link: https://meet.google.com/xxx-yyyy-zzz"
-                  />
-                  <p className="mt-1 text-xs text-faded">
-                    Copia el link de la sala que acabas de crear y pégalo aquí.
-                  </p>
-                </div>
+                <p className="rounded-lg bg-blush/20 px-3 py-2 text-xs text-faded">
+                  📅 Al crear el evento se abrirá Google Calendar para programarlo con un link de Meet y
+                  recordatorio automático.
+                </p>
               ) : null}
 
               {eventoError ? (
