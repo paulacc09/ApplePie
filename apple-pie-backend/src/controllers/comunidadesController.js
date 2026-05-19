@@ -87,6 +87,12 @@ const crearComunidad = async (req, res) => {
       ]
     );
 
+    const comunidadId = result.insertId;
+    await pool.execute(
+      'INSERT INTO miembros_comunidad (usuario_id, comunidad_id, rol) VALUES (?, ?, ?)',
+      [req.usuario.id, comunidadId, 'estudiante']
+    );
+
     return res.status(201).json({
       message: 'Comunidad creada',
       id: result.insertId,

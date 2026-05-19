@@ -26,7 +26,7 @@ npm start       # node server.js
 
 **Punto de entrada:** `server.js` crea el servidor HTTP, inicializa Socket.io y escucha el puerto (por defecto **3000**).
 
-**Aplicación Express:** `app.js` — Helmet, rate limits, **CORS** (incluye `OPTIONS` vía `app.options('*', cors(corsOptions))`), `express.json`, montaje de routers bajo `/api/...`, manejador de errores 500.
+**Aplicación Express:** `app.js` — Helmet, **CORS** (incluye preflight vía `app.options('/{*path}', cors(corsOptions))` para Express 5), rate limits, `express.json`, montaje de routers bajo `/api/...`, manejador de errores 500.
 
 ## Variables de entorno
 
@@ -37,7 +37,7 @@ npm start       # node server.js
 | `NODE_ENV` | Si vale `production`, el rate limit de `/api/auth` es más estricto (ver sección Seguridad). |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Imágenes |
 | `BREVO_API_KEY`, `BREVO_FROM_EMAIL` | Correo |
-| `CLIENT_URL` / `FRONTEND_URL` | **CORS:** `origin` (usar la URL exacta del front en producción, p. ej. Vercel). Con `credentials: true` no debe usarse `*` en el navegador: definir `FRONTEND_URL`. Cabeceras permitidas: `Content-Type`, `Authorization`. Métodos incluyen `OPTIONS` (preflight). |
+| `CLIENT_URL` / `FRONTEND_URL` | `CLIENT_URL` puede usarse en servicios externos/enlaces. **Estado actual de CORS en `app.js`:** `origin: "*"`, métodos `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, cabeceras `Content-Type` y `Authorization`, `credentials: true`. |
 
 ## Estructura de carpetas (`src/`)
 
@@ -147,7 +147,7 @@ Prefijo común: raíz del servidor (ej. `http://localhost:3000`).
 - `PATCH /api/admin/usuarios/:id/rol` — admin
 - `PATCH /api/admin/usuarios/:id/activo` — admin
 
-> Las pantallas **Admin*** del frontend (`/api/admin/stats`, `/api/admin/log`, planes, reportes agregados, etc.) pueden apuntar a rutas **no incluidas aún** en este router; implementarlas o alinear el front cuando el API esté completo.
+> Las pantallas **Admin*** del frontend (`/api/admin/stats`, `/api/admin/log`, `/api/admin/backup`, `/api/admin/anuncio`, planes, pagos admin y reportes agregados) apuntan a rutas **no incluidas aún** en este router; implementarlas o alinear el front cuando el API esté completo.
 
 ### Perfil
 
@@ -165,16 +165,36 @@ Prefijo común: raíz del servidor (ej. `http://localhost:3000`).
 
 Registro de usuario, unirse a comunidad, mensajes y notificaciones — ver `src/utils/socket.js` y eventos usados por el cliente.
 
+## Mapa frontend ↔ backend
+
+| Frontend | Backend actual | Estado |
+|----------|----------------|--------|
+| `Login.jsx` | `POST /api/auth/login` | Conectado. Body `{ email, password }`; el rol viene desde `usuarios.rol` y se firma en JWT. |
+| `Registro.jsx` | `POST /api/auth/register` | Conectado. El backend registra rol `estudiante`. |
+| `Home.jsx`, `Comunidades.jsx` | `GET /api/comunidades` | Conectado. |
+| `Comunidades.jsx` | `POST /api/comunidades` | Conectado con token. |
+| `ComunidadCard.jsx` | `POST /api/comunidades/:id/unirse` | Conectado con token. |
+| `ComunidadDetalle.jsx` | `GET /api/comunidades/:id`, `GET/POST /api/comunidades/:id/foro` | Parcial. El backend sí tiene detalle y foro por comunidad. El front también llama rutas legacy `/api/grupos/:id/...` y `POST /api/comunidades/:id/sesiones`, que no están montadas actualmente. |
+| `Foro.jsx` | `GET/POST /api/foro` | Pendiente. El backend actual no monta foro global; solo foro por comunidad. |
+| `Repositorio.jsx`, `ModalSubirRecurso.jsx` | `GET /api/recursos`, `POST /api/recursos`, `GET /api/recursos/:id`, `DELETE /api/recursos/:id` | Conectado; subida usa multipart y Cloudinary. |
+| `Mentoria.jsx`, `PerfilMentora.jsx` | `GET /api/mentoras`, `POST /api/mentoras/postularse`, `GET /api/mentoras/:id`, `PUT /api/mentoras/:id` | Conectado para perfil/listado/postulación. Tarifas y pago del perfil aún no tienen endpoints dedicados. |
+| `MiAgenda.jsx` | `GET /api/sesiones/estudiante` | Conectado. Calendario del estudiante usa sesiones reales. |
+| `AgendaMentora.jsx`, `DashboardMentora.jsx` | `GET /api/sesiones/mentora`, `GET /api/sesiones/mentora?estado=...`, `PUT /api/sesiones/:id` | Conectado. Confirmar sesión usa `PUT`. |
+| `PerfilMentora.jsx` / `ModalPago.jsx` | `POST /api/pagos` | Parcial. Backend existe, pero modal del front aún no crea pago real ni sesión real. |
+| Admin usuarios | `GET /api/admin/usuarios`, `PATCH /api/admin/usuarios/:id/rol`, `PATCH /api/admin/usuarios/:id/activo` | Parcial. Front actual lista usuarios, pero algunas acciones usan contratos distintos. |
+| Admin dashboard/pagos/reportes | `/api/admin/stats`, `/api/admin/log`, `/api/admin/pagos/...`, `/api/admin/reportes/...` | Pendiente en backend actual. |
+| Moderadora | `/api/moderacion/...` | Pendiente en backend actual. |
+
 ## Seguridad
 
 - **Helmet** y **rate limiting:** límite global (100 req / 15 min por IP) + límite extra en `/api/auth` (**10** / 15 min si `NODE_ENV === 'production'`, **500** / 15 min en otro caso) + límites en subidas (`/api/recursos`, `/api/perfil/foto`).
-- **CORS** (`app.js`): objeto `corsOptions` con `credentials: true`, métodos que incluyen `OPTIONS`, y `app.options('*', cors(corsOptions))` para responder preflight (evita `OPTIONS 404` desde orígenes como Vercel).
+- **CORS** (`app.js`): objeto `corsOptions` antes de los routers, métodos que incluyen `OPTIONS`, y `app.options('/{*path}', cors(corsOptions))` para responder preflight en Express 5 (evita `OPTIONS 404` desde orígenes como Vercel).
 - JWT con caducidad configurada en auth; contraseñas con **bcrypt** en registro y `bcrypt.compare` en login.
 - Roles en BD alineados con el front: `estudiante`, `mentora`, `moderadora`, `admin` (según migraciones / datos reales).
 
 ## Deploy
 
-Producción de referencia: **Railway** — URL pública usada como fallback en el front si no hay `VITE_API_BASE_URL`. En deploy, alinear **`FRONTEND_URL`** (backend) con el dominio del front (Vercel) para CORS y cookies/credenciales si se usan en el futuro.
+Producción de referencia: **Railway** — URL pública usada como fallback en el front si no hay `VITE_API_BASE_URL`. En Vercel, definir `VITE_API_BASE_URL` apuntando al backend. Si se endurece CORS para producción, cambiar `origin: "*"` por `process.env.FRONTEND_URL` y definir `FRONTEND_URL` con el dominio del front.
 
 ---
 

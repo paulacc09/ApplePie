@@ -84,11 +84,45 @@ Variables: crear `.env` con `VITE_API_BASE_URL` apuntando al backend (ej. `http:
 
 ## Integración con el backend
 
-El front asume una API REST bajo `VITE_API_BASE_URL` (en **Vercel** definir esta variable con la URL pública del API, p. ej. Railway). El backend debe permitir CORS desde ese origen (ver README del backend: `FRONTEND_URL`, preflight `OPTIONS`).
+El front consume una API REST mediante `src/api/axios.js`.
 
-Algunas pantallas de **administración** consumen rutas `/api/admin/...` pensadas para un backend extendido: si no están implementadas, la UI puede quedar vacía o con error controlado.
+- `baseURL`: `import.meta.env.VITE_API_BASE_URL` o fallback `https://applepie-production.up.railway.app`.
+- Auth: el interceptor agrega `Authorization: Bearer <token>` cuando existe `apple-pie-token`.
+- Errores `401`: el interceptor borra token/usuario y redirige a `/login`.
+- Login actual: `POST /api/auth/login` con body `{ email, password }`; el rol llega desde la BD en la respuesta/JWT.
 
-Rutas de **comunidad** que aún pueden usar prefijos legacy tipo `/api/grupos/:id/...` conviven con `/api/comunidades/...` según evolución del API.
+En deploy, Vercel debe definir `VITE_API_BASE_URL` con la URL pública del backend. El backend actual responde preflight con `OPTIONS /{*path}` y CORS está configurado en `app.js`.
+
+## Conexión actual por pantalla
+
+| Pantalla | Endpoints reales conectados | Estado |
+|----------|-----------------------------|--------|
+| `Login.jsx` | `POST /api/auth/login` | Real. Solo email/password. |
+| `Registro.jsx` | `POST /api/auth/register` | Real. Registro crea rol `estudiante` en backend. |
+| `Home.jsx` | `GET /api/comunidades`, `GET /api/recursos` | Real con fallbacks de UI. |
+| `Comunidades.jsx` | `GET /api/comunidades`, `POST /api/comunidades` | Real; crear comunidad requiere token. |
+| `ComunidadCard.jsx` | `POST /api/comunidades/:id/unirse` | Real; requiere token. |
+| `ComunidadDetalle.jsx` | `GET /api/comunidades/:id`, `GET/POST /api/comunidades/:id/foro` | Parcial. También intenta rutas legacy `/api/grupos/:id/...` y `POST /api/comunidades/:id/sesiones`, no documentadas en backend actual. |
+| `Repositorio.jsx` | `GET /api/recursos` | Real. |
+| `ModalSubirRecurso.jsx` | `POST /api/recursos` multipart | Real; requiere token. |
+| `Foro.jsx` | `GET/POST /api/foro` | Front listo, pero backend actual solo tiene foro por comunidad (`/api/comunidades/:id/foro`). |
+| `Mentoria.jsx` | `GET /api/mentoras`, `POST /api/mentoras/postularse` | Real. |
+| `PerfilMentora.jsx` | `GET /api/mentoras/:id` | Real para perfil base; tarifas/pago siguen mock/parcial. |
+| `MiAgenda.jsx` | `GET /api/sesiones/estudiante` | Real. Calendario básico conectado; crear evento sigue placeholder. |
+| `DashboardMentora.jsx` | `GET /api/sesiones/mentora`, `GET /api/sesiones/mentora?estado=pendiente`, `GET /api/mentoras` | Real. KPI de ingresos no disponible. |
+| `AgendaMentora.jsx` | `GET /api/sesiones/mentora`, `PUT /api/sesiones/:id` | Real para listar/confirmar sesiones. |
+| `AdminUsuarios.jsx` | `GET /api/admin/usuarios` | Parcial. La UI también llama PATCH/DELETE con contratos distintos a los del backend actual (`/rol`, `/activo`). |
+| `AdminDashboard.jsx` | `/api/admin/stats`, `/api/admin/log`, `/api/admin/backup`, `/api/admin/anuncio` | Pendiente en backend actual. |
+| `AdminPagos.jsx` | `/api/admin/pagos/...`, `/api/admin/planes` | Pendiente en backend actual. |
+| `AdminReportes.jsx` | `/api/admin/reportes/...` | Pendiente en backend actual. |
+| `Moderadora*.jsx` | `/api/moderacion/...` | Pendiente en backend actual. |
+
+## Mocks / pendientes relevantes
+
+- `MiAgenda.jsx`: ya no usa eventos fake; muestra sesiones reales del estudiante. `CREAR EVENTO` aún no crea sesión porque el backend exige `mentora_id`, `asignatura`, `descripcion_duda`, `fecha_hora`, `duracion_min`, etc.
+- `PerfilMentora.jsx`: tarifas, compra y `ModalPago` siguen sin pago real.
+- `DashboardMentora.jsx`: “Ingresos este mes” no puede calcularse sin endpoint de ingresos para mentora.
+- Admin/moderación: varias pantallas apuntan a endpoints planeados pero no implementados en el router actual.
 
 ## Pagos (usuaria)
 
