@@ -1,5 +1,15 @@
 const pool = require('../config/db');
 
+/** Columnas FK habituales entre sesiones y comunidad (solo nombres permitidos en SQL). */
+const SESIONES_COMUNIDAD_FK_CANDIDATES = ['comunidad_id', 'grupo_id', 'id_comunidad'];
+
+function resolveComunidadFkColumn(columnNames) {
+  for (const col of SESIONES_COMUNIDAD_FK_CANDIDATES) {
+    if (columnNames.has(col)) return col;
+  }
+  return null;
+}
+
 const getComunidades = async (req, res) => {
   try {
     const { asignatura, semestre, tipo } = req.query;
@@ -194,7 +204,15 @@ const getSesionesComunidad = async (req, res) => {
       columnNames.add('meet_link');
     }
 
-    if (!columnNames.has('comunidad_id')) {
+    const fkCol = resolveComunidadFkColumn(columnNames);
+    if (!fkCol) {
+      console.log(
+        '[sesiones] comunidad_id:',
+        req.params.id,
+        '→ rows: 0 (sin columna FK en sesiones; columnas:',
+        [...columnNames].join(', '),
+        ')'
+      );
       return res.status(200).json([]);
     }
 
@@ -208,21 +226,23 @@ const getSesionesComunidad = async (req, res) => {
       : columnNames.has('fecha_hora')
         ? 'fecha_hora'
         : 'id';
-    const orderBy = columnNames.has('fecha') && columnNames.has('hora')
+    const orderByJoin = columnNames.has('fecha') && columnNames.has('hora')
       ? 's.fecha ASC, s.hora ASC'
       : `s.${orderColumn} ASC`;
+    const orderByPlain = columnNames.has('fecha') && columnNames.has('hora')
+      ? 'fecha ASC, hora ASC'
+      : `${orderColumn} ASC`;
     const sql = joinColumn
       ? `SELECT s.*, u.nombre AS creadora_nombre, u.apellido AS creadora_apellido
          FROM sesiones s
          LEFT JOIN usuarios u ON u.id = s.${joinColumn}
-         WHERE s.comunidad_id = ?
-         ORDER BY ${orderBy}`
-      : `SELECT * FROM sesiones WHERE comunidad_id = ? ORDER BY ${orderColumn} ASC`;
+         WHERE s.${fkCol} = ?
+         ORDER BY ${orderByJoin}`
+      : `SELECT * FROM sesiones WHERE ${fkCol} = ? ORDER BY ${orderByPlain} ASC`;
 
-    const [rows] = await pool.query(
-      sql,
-      [id]
-    );
+    const [rows] = await pool.query(sql, [id]);
+
+    console.log('[sesiones] comunidad_id:', req.params.id, '→ rows:', rows.length);
 
     return res.status(200).json(rows);
   } catch (err) {
@@ -265,6 +285,14 @@ const crearSesionComunidad = async (req, res) => {
       columnNames.add('meet_link');
     }
 
+    const fkCol = resolveComunidadFkColumn(columnNames);
+    if (!fkCol) {
+      return res.status(400).json({
+        error:
+          'No se puede crear la sesión: la tabla sesiones no tiene columna de comunidad (comunidad_id, grupo_id o id_comunidad)',
+      });
+    }
+
     const fields = [];
     const placeholders = [];
     const values = [];
@@ -287,7 +315,7 @@ const crearSesionComunidad = async (req, res) => {
     );
     const fechaHoraFinal = fecha && hora ? `${fecha} ${hora}` : fechaFinal;
 
-    addField('comunidad_id', id);
+    addField(fkCol, id);
     addField('creadora_id', creadora_id);
     addField('mentora_id', creadora_id);
     addField('estudiante_id', creadora_id);

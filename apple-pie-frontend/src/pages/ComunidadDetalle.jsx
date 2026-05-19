@@ -87,6 +87,13 @@ function mapRecurso(raw) {
   }
 }
 
+function normalizeSesionesList(data) {
+  if (Array.isArray(data)) return data
+  if (Array.isArray(data?.sesiones)) return data.sesiones
+  if (Array.isArray(data?.data)) return data.data
+  return []
+}
+
 export default function ComunidadDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -103,7 +110,7 @@ export default function ComunidadDetalle() {
   const [publishing, setPublishing] = useState(false)
   const [resourceFilter, setResourceFilter] = useState('Todos')
   const [showModalRecurso, setShowModalRecurso] = useState(false)
-  const [sesionesCalendario, setSesionesCalendario] = useState([])
+  const [sesiones, setSesiones] = useState([])
   const [showModalEvento, setShowModalEvento] = useState(false)
   const [eventoForm, setEventoForm] = useState(EVENTO_INICIAL)
   const [creandoEvento, setCreandoEvento] = useState(false)
@@ -119,6 +126,21 @@ export default function ComunidadDetalle() {
       setRecursos([])
     }
   }, [id])
+
+  const cargarSesiones = useCallback(async () => {
+    if (!id) return
+    try {
+      const { data } = await api.get(`/api/comunidades/${id}/sesiones`)
+      setSesiones(normalizeSesionesList(data))
+    } catch (err) {
+      console.error('Error cargando sesiones:', err)
+      setSesiones([])
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (id) void cargarSesiones()
+  }, [id, cargarSesiones])
 
   useEffect(() => {
     let cancelled = false
@@ -172,14 +194,6 @@ export default function ComunidadDetalle() {
           if (!cancelled) setRecursos([])
         }
         return
-      }
-      if (tab === 'calendario') {
-        try {
-          const { data } = await api.get(`/api/comunidades/${id}/sesiones`)
-          if (!cancelled) setSesionesCalendario(Array.isArray(data) ? data : [])
-        } catch {
-          if (!cancelled) setSesionesCalendario([])
-        }
       }
     }
 
@@ -248,18 +262,17 @@ export default function ComunidadDetalle() {
 
     setCreandoEvento(true)
     try {
-      const meetLink = eventoForm.modalidad === 'virtual' ? generarMeetLink() : null
+      const meetLink = eventoForm.modalidad !== 'presencial' ? generarMeetLink() : null
       await api.post('/api/comunidades/' + id + '/sesiones', {
         nombre: eventoForm.nombre.trim(),
         fecha: eventoForm.fecha,
         hora: eventoForm.hora,
-        modalidad: eventoForm.modalidad,
+        modalidad: eventoForm.modalidad || 'virtual',
         descripcion: eventoForm.descripcion.trim(),
         capacidad_max: Number(eventoForm.capacidad_max) || 30,
         meet_link: meetLink,
       })
-      const { data } = await api.get(`/api/comunidades/${id}/sesiones`)
-      setSesionesCalendario(Array.isArray(data) ? data : [])
+      await cargarSesiones()
       setShowModalEvento(false)
       setEventoForm(EVENTO_INICIAL)
       setEventoSuccess('Evento creado correctamente.')
@@ -412,48 +425,58 @@ export default function ComunidadDetalle() {
                 </p>
               ) : null}
               <div className="mt-2 space-y-2">
-                {sesionesCalendario.length === 0 ? (
-                  <p className="rounded-lg border border-line bg-cream px-3 py-3 text-center text-sm text-stone">
+                {sesiones.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-stone">
                     No hay sesiones registradas para esta comunidad.
                   </p>
                 ) : (
-                  sesionesCalendario.map((s) => {
-                    const fh = s.fecha_hora || s.fecha ? new Date(s.fecha_hora ?? s.fecha) : null
-                    const hora =
-                      s.hora ??
-                      (fh ? fh.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '—')
-                    const fecha = fh
-                      ? fh.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
-                      : '—'
-                    const nombreSesion = s.nombre ?? s.titulo ?? s.asignatura ?? 'Evento sin nombre'
-                    const meetLink = s.meet_link ?? s.enlace_sesion
-                    const modalidad = String(s.modalidad ?? (meetLink ? 'virtual' : 'presencial')).toLowerCase()
-                    const icono = modalidad === 'virtual' ? '🎥' : '📍'
-                    const descripcionSesion = s.descripcion ?? s.descripcion_duda
+                  sesiones.map((sesion) => {
+                    const rawFecha = sesion.fecha
+                    const fechaStr = rawFecha ? String(rawFecha) : ''
+                    const fechaFmt =
+                      fechaStr.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(fechaStr)
+                        ? new Date(`${fechaStr.slice(0, 10)}T00:00:00`).toLocaleDateString('es-CO', {
+                            weekday: 'short',
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          })
+                        : rawFecha
+                          ? new Date(rawFecha).toLocaleDateString('es-CO', {
+                              weekday: 'short',
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })
+                          : '—'
+                    const mod = String(sesion.modalidad ?? '').toLowerCase()
+                    const titulo = sesion.nombre ?? sesion.titulo ?? sesion.asignatura ?? 'Evento sin nombre'
                     return (
-                      <div
-                        key={s.id}
-                        className="rounded-lg border-l-4 border-rose bg-rose-light px-3 py-2 text-sm text-ink"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="rounded bg-rose-light px-2 py-0.5 text-xs font-medium text-rose-dark">
-                            {icono} {modalidad === 'virtual' ? 'Virtual' : 'Presencial'}
-                          </span>
-                          {meetLink ? (
+                      <div key={sesion.id} className="mb-2 rounded-xl bg-blush/30 p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-ink">{titulo}</p>
+                            <p className="text-xs text-stone">
+                              {fechaFmt} · {sesion.hora ?? '—'}
+                            </p>
+                            <span className="text-xs text-rose-dark">
+                              {mod === 'virtual' ? '🎥 Virtual' : '📍 Presencial'}
+                            </span>
+                          </div>
+                          {sesion.meet_link ? (
                             <a
-                              href={meetLink}
+                              href={sesion.meet_link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs font-medium text-olive underline hover:opacity-80"
+                              className="shrink-0 rounded-lg bg-olive px-2 py-1 text-xs text-white hover:opacity-80"
                             >
-                              Unirse a Meet →
+                              Unirse →
                             </a>
                           ) : null}
                         </div>
-                        <p className="mt-1">
-                          {nombreSesion} — {fecha} {hora}
-                        </p>
-                        {descripcionSesion ? <p className="mt-1 text-xs text-stone">{descripcionSesion}</p> : null}
+                        {sesion.descripcion ? (
+                          <p className="mt-1 text-xs text-stone">{sesion.descripcion}</p>
+                        ) : null}
                       </div>
                     )
                   })
