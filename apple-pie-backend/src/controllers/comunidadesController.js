@@ -186,8 +186,33 @@ const getSesionesComunidad = async (req, res) => {
       return res.status(404).json({ error: 'Comunidad no encontrada' });
     }
 
+    const [columns] = await pool.query('SHOW COLUMNS FROM sesiones');
+    const columnNames = new Set(columns.map((c) => c.Field));
+
+    if (!columnNames.has('comunidad_id')) {
+      return res.status(200).json([]);
+    }
+
+    const joinColumn = columnNames.has('creadora_id')
+      ? 'creadora_id'
+      : columnNames.has('estudiante_id')
+        ? 'estudiante_id'
+        : null;
+    const orderColumn = columnNames.has('fecha')
+      ? 'fecha'
+      : columnNames.has('fecha_hora')
+        ? 'fecha_hora'
+        : 'id';
+    const sql = joinColumn
+      ? `SELECT s.*, u.nombre, u.apellido
+         FROM sesiones s
+         LEFT JOIN usuarios u ON u.id = s.${joinColumn}
+         WHERE s.comunidad_id = ?
+         ORDER BY s.${orderColumn} ASC`
+      : `SELECT * FROM sesiones WHERE comunidad_id = ? ORDER BY ${orderColumn} ASC`;
+
     const [rows] = await pool.query(
-      'SELECT * FROM sesiones WHERE comunidad_id = ? ORDER BY fecha_hora ASC',
+      sql,
       [id]
     );
 
@@ -195,6 +220,84 @@ const getSesionesComunidad = async (req, res) => {
   } catch (err) {
     console.error('Error en getSesionesComunidad:', err);
     return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+const crearSesionComunidad = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      nombre,
+      titulo,
+      fecha,
+      hora,
+      modalidad,
+      descripcion,
+      capacidad_max,
+      asignatura,
+      duracion_min,
+    } = req.body;
+    const creadora_id = req.usuario.id;
+
+    const [comunidad] = await pool.query(
+      'SELECT id FROM comunidades WHERE id = ? AND activa = 1',
+      [id]
+    );
+
+    if (comunidad.length === 0) {
+      return res.status(404).json({ error: 'Comunidad no encontrada' });
+    }
+
+    const [columns] = await pool.query('SHOW COLUMNS FROM sesiones');
+    const columnNames = new Set(columns.map((c) => c.Field));
+    const fields = [];
+    const placeholders = [];
+    const values = [];
+
+    function addField(field, value) {
+      if (!columnNames.has(field)) return;
+      fields.push(field);
+      placeholders.push('?');
+      values.push(value);
+    }
+
+    const nombreFinal = nombre ?? titulo ?? 'Nuevo evento';
+    const fechaFinal = fecha ?? new Date().toISOString();
+    const horaFinal = hora ?? (
+      fechaFinal ? new Date(fechaFinal).toTimeString().slice(0, 5) : '00:00'
+    );
+    const fechaHoraFinal = fecha && hora ? `${fecha} ${hora}` : fechaFinal;
+
+    addField('comunidad_id', id);
+    addField('creadora_id', creadora_id);
+    addField('mentora_id', creadora_id);
+    addField('estudiante_id', creadora_id);
+    addField('nombre', nombreFinal);
+    addField('titulo', nombreFinal);
+    addField('asignatura', asignatura ?? nombreFinal);
+    addField('fecha', fechaFinal);
+    addField('hora', horaFinal);
+    addField('fecha_hora', fechaHoraFinal);
+    addField('modalidad', modalidad ?? 'virtual');
+    addField('descripcion', descripcion ?? '');
+    addField('descripcion_duda', descripcion ?? nombreFinal);
+    addField('capacidad_max', capacidad_max ?? 30);
+    addField('duracion_min', duracion_min ?? 60);
+    addField('estado', 'pendiente');
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: 'No hay columnas compatibles para crear la sesión' });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO sesiones (${fields.join(', ')}) VALUES (${placeholders.join(', ')})`,
+      values
+    );
+
+    return res.status(201).json({ id: result.insertId, mensaje: 'Sesión creada' });
+  } catch (error) {
+    console.error('Error en crearSesionComunidad:', error);
+    return res.status(500).json({ error: 'Error al crear sesión' });
   }
 };
 
@@ -229,6 +332,7 @@ module.exports = {
   getComunidadById,
   getMiembrosComunidad,
   getSesionesComunidad,
+  crearSesionComunidad,
   crearComunidad,
   unirseAComunidad,
   salirDeComunidad,

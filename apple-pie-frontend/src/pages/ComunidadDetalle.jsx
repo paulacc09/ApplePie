@@ -209,11 +209,20 @@ export default function ComunidadDetalle() {
 
   async function handleCrearEvento() {
     if (!id) return
+    const ahora = new Date()
+    const fecha = ahora.toISOString().slice(0, 10)
+    const hora = ahora.toTimeString().slice(0, 5)
     try {
       await api.post('/api/comunidades/' + id + '/sesiones', {
-        titulo: 'Nuevo evento',
-        fecha: new Date().toISOString(),
+        nombre: 'Nuevo evento',
+        fecha,
+        hora,
+        modalidad: 'virtual',
+        descripcion: 'Evento creado desde la comunidad',
+        capacidad_max: 30,
       })
+      const { data } = await api.get(`/api/comunidades/${id}/sesiones`)
+      setSesionesCalendario(Array.isArray(data) ? data : [])
       window.alert('Evento creado correctamente.')
     } catch (e) {
       window.alert(getErrorMessage(e))
@@ -363,13 +372,14 @@ export default function ComunidadDetalle() {
                   </p>
                 ) : (
                   sesionesCalendario.map((s) => {
-                    const fh = s.fecha_hora ? new Date(s.fecha_hora) : null
-                    const hora = fh
-                      ? fh.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
-                      : '—'
+                    const fh = s.fecha_hora || s.fecha ? new Date(s.fecha_hora ?? s.fecha) : null
+                    const hora =
+                      s.hora ??
+                      (fh ? fh.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '—')
                     const fecha = fh
                       ? fh.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
                       : '—'
+                    const nombreSesion = s.nombre ?? s.titulo ?? s.asignatura ?? 'Sesión'
                     return (
                       <div
                         key={s.id}
@@ -379,7 +389,7 @@ export default function ComunidadDetalle() {
                           {s.estado ?? 'Sesión'}
                         </span>
                         <p className="mt-1">
-                          {s.asignatura ?? 'Sesión'} — {fecha} {hora}
+                          {nombreSesion} — {fecha} {hora}
                         </p>
                       </div>
                     )
