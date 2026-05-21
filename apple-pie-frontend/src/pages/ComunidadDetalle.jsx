@@ -134,6 +134,8 @@ export default function ComunidadDetalle() {
   const [creandoEvento, setCreandoEvento] = useState(false)
   const [eventoError, setEventoError] = useState('')
   const [eventoSuccess, setEventoSuccess] = useState('')
+  const [eventosAgendados, setEventosAgendados] = useState(() => new Set())
+  const [agendaEstado, setAgendaEstado] = useState({})
 
   const recargarRecursosGrupo = useCallback(async () => {
     if (!id) return
@@ -148,11 +150,17 @@ export default function ComunidadDetalle() {
   const cargarEventos = useCallback(async () => {
     if (!id) return
     try {
-      const { data } = await api.get(`/api/comunidades/${id}/eventos`)
-      setEventos(normalizeEventosList(data))
+      const [evRes, agRes] = await Promise.all([
+        api.get(`/api/comunidades/${id}/eventos`),
+        api.get(`/api/comunidades/${id}/eventos/agendados`),
+      ])
+      setEventos(normalizeEventosList(evRes.data))
+      const ids = Array.isArray(agRes.data) ? agRes.data.map((x) => String(x)) : []
+      setEventosAgendados(new Set(ids))
     } catch (err) {
       console.error('Error cargando eventos:', err)
       setEventos([])
+      setEventosAgendados(new Set())
     }
   }, [id])
 
@@ -162,11 +170,21 @@ export default function ComunidadDetalle() {
 
     async function loadEventos() {
       try {
-        const { data } = await api.get(`/api/comunidades/${id}/eventos`)
-        if (!cancelled) setEventos(normalizeEventosList(data))
+        const [evRes, agRes] = await Promise.all([
+          api.get(`/api/comunidades/${id}/eventos`),
+          api.get(`/api/comunidades/${id}/eventos/agendados`),
+        ])
+        if (!cancelled) {
+          setEventos(normalizeEventosList(evRes.data))
+          const ids = Array.isArray(agRes.data) ? agRes.data.map((x) => String(x)) : []
+          setEventosAgendados(new Set(ids))
+        }
       } catch (err) {
         console.error('Error cargando eventos:', err)
-        if (!cancelled) setEventos([])
+        if (!cancelled) {
+          setEventos([])
+          setEventosAgendados(new Set())
+        }
       }
     }
 
@@ -281,6 +299,37 @@ export default function ComunidadDetalle() {
     if (creandoEvento) return
     setShowModalEvento(false)
     setEventoError('')
+  }
+
+  async function handleAgendarEvento(eventoId) {
+    if (!id || eventoId == null) return
+    const eid = String(eventoId)
+    setAgendaEstado((prev) => ({
+      ...prev,
+      [eid]: { loading: true, done: false, error: null },
+    }))
+    try {
+      await api.post(`/api/comunidades/${id}/eventos/${eventoId}/inscribir`)
+      setEventosAgendados((prev) => new Set([...prev, eid]))
+      setAgendaEstado((prev) => ({
+        ...prev,
+        [eid]: { loading: false, done: true, error: null },
+      }))
+    } catch (e) {
+      const msg = getErrorMessage(e)
+      const yaAgendado = /agenda/i.test(msg)
+      if (yaAgendado) {
+        setEventosAgendados((prev) => new Set([...prev, eid]))
+      }
+      setAgendaEstado((prev) => ({
+        ...prev,
+        [eid]: {
+          loading: false,
+          done: yaAgendado,
+          error: yaAgendado ? null : msg,
+        },
+      }))
+    }
   }
 
   async function handleCrearEvento(e) {
@@ -491,6 +540,10 @@ export default function ComunidadDetalle() {
                             })
                           : '—'
                     const mod = String(evento.modalidad ?? '').toLowerCase()
+                    const eid = String(evento.id)
+                    const estadoAgenda = agendaEstado[eid]
+                    const agendado = estadoAgenda?.done || eventosAgendados.has(eid)
+                    const agendando = estadoAgenda?.loading
                     return (
                       <div key={evento.id} className="mb-2 rounded-xl bg-blush/30 p-3">
                         <div className="flex items-start justify-between gap-2">
@@ -503,28 +556,45 @@ export default function ComunidadDetalle() {
                               {mod === 'virtual' ? '🎥 Virtual' : '📍 Presencial'}
                             </span>
                           </div>
-                          {evento.meet_link ? (
-                            <a
-                              href={evento.meet_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 rounded-lg bg-olive px-2 py-1 text-xs text-white hover:opacity-80"
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            {evento.meet_link ? (
+                              <a
+                                href={evento.meet_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded-lg bg-olive px-2 py-1 text-xs text-white hover:opacity-80"
+                              >
+                                Unirse →
+                              </a>
+                            ) : mod !== 'presencial' ? (
+                              <a
+                                href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(evento.nombre)}&vcon=meet`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="rounded-lg bg-gray-300 px-2 py-1 text-xs text-gray-600 hover:opacity-80"
+                              >
+                                Programar →
+                              </a>
+                            ) : null}
+                            <button
+                              type="button"
+                              disabled={agendado || agendando}
+                              onClick={() => handleAgendarEvento(evento.id)}
+                              className={`rounded-lg px-2 py-1 text-xs disabled:opacity-60 ${
+                                agendado
+                                  ? 'bg-mint text-olive'
+                                  : 'border border-rose bg-white text-rose-dark hover:bg-rose-light'
+                              }`}
                             >
-                              Unirse →
-                            </a>
-                          ) : mod !== 'presencial' ? (
-                            <a
-                              href={`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(evento.nombre)}&vcon=meet`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 rounded-lg bg-gray-300 px-2 py-1 text-xs text-gray-600 hover:opacity-80"
-                            >
-                              Programar →
-                            </a>
-                          ) : null}
+                              {agendando ? 'Agendando…' : agendado ? '✓ Agendado' : '📅 Agendar'}
+                            </button>
+                          </div>
                         </div>
                         {evento.descripcion ? (
                           <p className="mt-1 text-xs text-stone">{evento.descripcion}</p>
+                        ) : null}
+                        {estadoAgenda?.error ? (
+                          <p className="mt-1 text-xs text-rose-dark">{estadoAgenda.error}</p>
                         ) : null}
                       </div>
                     )

@@ -4,6 +4,20 @@ const verificarToken = require('../middleware/verificarToken');
 
 const router = express.Router({ mergeParams: true });
 
+async function ensureEventosCalendarioTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS eventos_calendario (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      usuario_id INT NOT NULL,
+      evento_id INT NOT NULL,
+      comunidad_id INT NOT NULL,
+      tipo VARCHAR(50) NOT NULL DEFAULT 'evento_comunidad',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_usuario_evento_tipo (usuario_id, evento_id, tipo)
+    )
+  `);
+}
+
 async function ensureEventosComunidadTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS eventos_comunidad (
@@ -79,6 +93,70 @@ router.post('/', verificarToken, async (req, res) => {
   } catch (err) {
     console.error('Error al crear evento:', err);
     return res.status(500).json({ error: 'Error al crear evento' });
+  }
+});
+
+// GET /api/comunidades/:id/eventos/agendados
+router.get('/agendados', verificarToken, async (req, res) => {
+  try {
+    await ensureEventosCalendarioTable();
+
+    const [rows] = await pool.query(
+      `SELECT evento_id
+       FROM eventos_calendario
+       WHERE usuario_id = ? AND comunidad_id = ? AND tipo = 'evento_comunidad'`,
+      [req.usuario.id, req.params.id]
+    );
+
+    return res.json(rows.map((r) => r.evento_id));
+  } catch (err) {
+    console.error('Error al obtener eventos agendados:', err);
+    return res.status(500).json({ error: 'Error al obtener eventos agendados' });
+  }
+});
+
+// POST /api/comunidades/:id/eventos/:eventoId/inscribir
+router.post('/:eventoId/inscribir', verificarToken, async (req, res) => {
+  try {
+    const comunidadId = req.params.id;
+    const eventoId = req.params.eventoId;
+    const usuarioId = req.usuario.id;
+
+    await ensureEventosComunidadTable();
+    await ensureEventosCalendarioTable();
+
+    const [evento] = await pool.query(
+      'SELECT id FROM eventos_comunidad WHERE id = ? AND comunidad_id = ?',
+      [eventoId, comunidadId]
+    );
+
+    if (evento.length === 0) {
+      return res.status(404).json({ error: 'Evento no encontrado' });
+    }
+
+    const [existente] = await pool.query(
+      `SELECT id FROM eventos_calendario
+       WHERE usuario_id = ? AND evento_id = ? AND tipo = 'evento_comunidad'`,
+      [usuarioId, eventoId]
+    );
+
+    if (existente.length > 0) {
+      return res.status(400).json({ error: 'Ya tienes este evento en tu agenda' });
+    }
+
+    await pool.query(
+      `INSERT INTO eventos_calendario (usuario_id, evento_id, comunidad_id, tipo)
+       VALUES (?, ?, ?, 'evento_comunidad')`,
+      [usuarioId, eventoId, comunidadId]
+    );
+
+    return res.status(201).json({ message: 'Evento agendado en tu calendario' });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Ya tienes este evento en tu agenda' });
+    }
+    console.error('Error al inscribir evento:', err);
+    return res.status(500).json({ error: 'Error al agendar evento' });
   }
 });
 

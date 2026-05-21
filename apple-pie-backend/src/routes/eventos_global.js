@@ -4,6 +4,20 @@ const verificarToken = require('../middleware/verificarToken');
 
 const router = express.Router();
 
+async function ensureEventosCalendarioTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS eventos_calendario (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      usuario_id INT NOT NULL,
+      evento_id INT NOT NULL,
+      comunidad_id INT NOT NULL,
+      tipo VARCHAR(50) NOT NULL DEFAULT 'evento_comunidad',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_usuario_evento_tipo (usuario_id, evento_id, tipo)
+    )
+  `);
+}
+
 async function ensureEventosComunidadTable() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS eventos_comunidad (
@@ -28,6 +42,7 @@ router.get('/', verificarToken, async (req, res) => {
   try {
     const userId = req.usuario.id;
     await ensureEventosComunidadTable();
+    await ensureEventosCalendarioTable();
 
     const [rows] = await pool.query(
       `SELECT
@@ -46,6 +61,21 @@ router.get('/', verificarToken, async (req, res) => {
        WHERE mc.usuario_id = ? AND COALESCE(mc.activo, 1) = 1
        UNION ALL
        SELECT
+         e.id,
+         e.nombre,
+         e.descripcion,
+         DATE_FORMAT(e.fecha, '%Y-%m-%d') AS fecha,
+         TIME_FORMAT(e.hora, '%H:%i') AS hora,
+         e.modalidad,
+         e.meet_link,
+         c.nombre AS contexto,
+         'comunidad' AS tipo
+       FROM eventos_comunidad e
+       JOIN comunidades c ON c.id = e.comunidad_id
+       JOIN eventos_calendario ec ON ec.evento_id = e.id AND ec.tipo = 'evento_comunidad'
+       WHERE ec.usuario_id = ?
+       UNION ALL
+       SELECT
          s.id,
          s.asignatura AS nombre,
          s.descripcion_duda AS descripcion,
@@ -61,10 +91,18 @@ router.get('/', verificarToken, async (req, res) => {
        FROM sesiones s
        WHERE s.mentora_id = ? OR s.estudiante_id = ?
        ORDER BY fecha ASC, hora ASC`,
-      [userId, userId, userId, userId]
+      [userId, userId, userId, userId, userId]
     );
 
-    return res.json(rows);
+    const seen = new Set();
+    const unique = rows.filter((row) => {
+      const key = `${row.tipo}-${row.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    return res.json(unique);
   } catch (err) {
     console.error('Error al obtener agenda:', err);
     return res.status(500).json({ error: 'Error al obtener agenda' });
