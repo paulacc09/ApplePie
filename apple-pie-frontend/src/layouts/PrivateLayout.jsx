@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import AccessibilityPanel from '../components/AccessibilityPanel.jsx'
 import BottomNav from '../components/BottomNav.jsx'
 import Navbar from '../components/Navbar.jsx'
 import Sidebar from '../components/Sidebar.jsx'
@@ -23,6 +24,7 @@ export default function PrivateLayout() {
         </main>
       </div>
       {showBottomNav ? <BottomNav /> : null}
+      <AccessibilityPanel />
     </div>
   )
 }

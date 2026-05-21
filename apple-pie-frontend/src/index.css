@@ -41,3 +41,13 @@
     @apply outline outline-2 outline-offset-2 outline-rose;
   }
 }
+
+html.invert-colors {
+  filter: invert(1) hue-rotate(180deg);
+}
+html.text-large {
+  font-size: 1.125rem;
+}
+html.text-xlarge {
+  font-size: 1.25rem;
+}

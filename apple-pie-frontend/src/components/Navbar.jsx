@@ -1,5 +1,4 @@
 import { useAuth } from '../context/AuthContext.jsx'
-import { useTheme } from '../context/ThemeContext.jsx'
 import LogoApplePie from './LogoApplePie.jsx'
 
 function displayName(user) {
@@ -15,7 +14,6 @@ function initialLetter(user) {
 
 export default function Navbar({ onToggleSidebar }) {
   const { user, logout } = useAuth()
-  const { theme, toggleTheme } = useTheme()
 
   return (
     <header className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center gap-3 border-b border-line bg-warm px-4 shadow-sm md:gap-4 md:px-6">
@@ -53,15 +51,6 @@ export default function Navbar({ onToggleSidebar }) {
       </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="hidden rounded-full p-2 text-stone transition-all duration-200 hover:bg-rose-light md:inline-flex"
-          aria-label="Cambiar tema"
-        >
-          <span aria-hidden="true">{theme === 'dark' ? '☀️' : '🌙'}</span>
-        </button>
-
         <div className="relative shrink-0" title={displayName(user)}>
           <div
             className="flex h-9 w-9 items-center justify-center rounded-full bg-rose text-sm font-semibold text-ink"
