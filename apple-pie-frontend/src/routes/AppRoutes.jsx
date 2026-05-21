@@ -13,6 +13,7 @@ import Foro from '../pages/Foro.jsx'
 import Mentoria from '../pages/Mentoria.jsx'
 import PerfilMentora from '../pages/PerfilMentora.jsx'
 import MiPerfil from '../pages/MiPerfil.jsx'
+import EditarPerfil from '../pages/EditarPerfil.jsx'
 import MiAgenda from '../pages/MiAgenda.jsx'
 import DashboardMentora from '../pages/DashboardMentora.jsx'
 import AgendaMentora from '../pages/AgendaMentora.jsx'
@@ -45,6 +46,7 @@ export default function AppRoutes() {
           <Route path="/mentoria" element={<Mentoria />} />
           <Route path="/mentoria/:id" element={<PerfilMentora />} />
           <Route path="/perfil" element={<MiPerfil />} />
+          <Route path="/perfil/editar" element={<EditarPerfil />} />
           <Route path="/agenda" element={<MiAgenda />} />
           <Route element={<PrivateRoute allowedRoles={['mentora']} />}>
             <Route path="/mentora/dashboard" element={<DashboardMentora />} />

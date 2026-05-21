@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { api } from '../api/axios.js'
 import { getErrorMessage } from '../lib/apiError.js'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -76,7 +76,6 @@ function mapSesion(raw) {
 }
 
 export default function MiPerfil() {
-  const navigate = useNavigate()
   const { user } = useAuth()
   const [comunidades, setComunidades] = useState([])
   const [sesiones, setSesiones] = useState([])
@@ -179,13 +178,12 @@ export default function MiPerfil() {
   return (
     <div className="mx-auto max-w-3xl space-y-8 pb-10">
       <header className="relative rounded-2xl border border-line bg-white p-6">
-        <button
-          type="button"
-          onClick={() => navigate('/perfil/editar')}
+        <Link
+          to="/perfil/editar"
           className="absolute right-4 top-4 rounded-xl border border-rose bg-white px-3 py-1.5 text-xs font-medium text-rose-dark transition-all hover:bg-rose-light"
         >
           Editar perfil
-        </button>
+        </Link>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-rose text-2xl font-semibold text-ink">
             {inicial}
