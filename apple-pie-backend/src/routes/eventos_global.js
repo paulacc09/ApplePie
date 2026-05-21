@@ -82,7 +82,7 @@ router.get('/', verificarToken, async (req, res) => {
          DATE_FORMAT(s.fecha_hora, '%Y-%m-%d') AS fecha,
          DATE_FORMAT(s.fecha_hora, '%H:%i') AS hora,
          'virtual' AS modalidad,
-         s.enlace_sesion AS meet_link,
+         s.meet_link,
          CASE
            WHEN s.mentora_id = ? THEN 'Mentoría (como mentora)'
            ELSE 'Mentoría (como estudiante)'
