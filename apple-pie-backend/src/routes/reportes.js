@@ -26,6 +26,12 @@ router.get(
   reportesController.getModerationStats
 );
 router.get(
+  '/historial',
+  verificarToken,
+  verificarRol(['admin', 'moderadora']),
+  reportesController.getHistorial
+);
+router.get(
   '/reportes',
   verificarToken,
   verificarRol(['admin', 'moderadora']),

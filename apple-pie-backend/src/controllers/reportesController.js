@@ -145,6 +145,29 @@ const getModerationStats = async (req, res) => {
   }
 };
 
+const getHistorial = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT
+         rc.id,
+         rc.fecha_resolucion AS fecha,
+         rc.motivo AS reporte,
+         rc.accion_tomada,
+         rc.estado,
+         CONCAT(u.nombre, ' ', COALESCE(u.apellido, '')) AS moderadora
+       FROM reportes_contenido rc
+       LEFT JOIN usuarios u ON u.id = rc.moderadora_id
+       WHERE rc.estado IN ('resuelto', 'desestimado')
+       ORDER BY rc.fecha_resolucion DESC`
+    );
+
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error en getHistorial:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 const ACCIONES_FRONTEND = {
   eliminar_contenido: { estado: 'resuelto', accion_tomada: 'eliminado' },
   emitir_advertencia: { estado: 'resuelto', accion_tomada: 'advertencia' },
@@ -179,5 +202,6 @@ module.exports = {
   listarReportes,
   resolverReporte,
   getModerationStats,
+  getHistorial,
   accionModeracionReporte,
 };
