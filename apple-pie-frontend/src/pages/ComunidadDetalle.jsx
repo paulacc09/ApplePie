@@ -134,8 +134,9 @@ export default function ComunidadDetalle() {
   const [creandoEvento, setCreandoEvento] = useState(false)
   const [eventoError, setEventoError] = useState('')
   const [eventoSuccess, setEventoSuccess] = useState('')
-  const [eventosAgendados, setEventosAgendados] = useState(() => new Set())
-  const [agendaEstado, setAgendaEstado] = useState({})
+  const [agendados, setAgendados] = useState(() => new Set())
+  const [agendando, setAgendando] = useState({})
+  const [agendarErrores, setAgendarErrores] = useState({})
 
   const recargarRecursosGrupo = useCallback(async () => {
     if (!id) return
@@ -155,12 +156,12 @@ export default function ComunidadDetalle() {
         api.get(`/api/comunidades/${id}/eventos/agendados`),
       ])
       setEventos(normalizeEventosList(evRes.data))
-      const ids = Array.isArray(agRes.data) ? agRes.data.map((x) => String(x)) : []
-      setEventosAgendados(new Set(ids))
+      const ids = Array.isArray(agRes.data) ? agRes.data : []
+      setAgendados(new Set(ids))
     } catch (err) {
       console.error('Error cargando eventos:', err)
       setEventos([])
-      setEventosAgendados(new Set())
+      setAgendados(new Set())
     }
   }, [id])
 
@@ -176,14 +177,14 @@ export default function ComunidadDetalle() {
         ])
         if (!cancelled) {
           setEventos(normalizeEventosList(evRes.data))
-          const ids = Array.isArray(agRes.data) ? agRes.data.map((x) => String(x)) : []
-          setEventosAgendados(new Set(ids))
+          const ids = Array.isArray(agRes.data) ? agRes.data : []
+          setAgendados(new Set(ids))
         }
       } catch (err) {
         console.error('Error cargando eventos:', err)
         if (!cancelled) {
           setEventos([])
-          setEventosAgendados(new Set())
+          setAgendados(new Set())
         }
       }
     }
@@ -303,32 +304,20 @@ export default function ComunidadDetalle() {
 
   async function handleAgendarEvento(eventoId) {
     if (!id || eventoId == null) return
-    const eid = String(eventoId)
-    setAgendaEstado((prev) => ({
-      ...prev,
-      [eid]: { loading: true, done: false, error: null },
-    }))
+    setAgendando((prev) => ({ ...prev, [eventoId]: true }))
+    setAgendarErrores((prev) => ({ ...prev, [eventoId]: '' }))
     try {
       await api.post(`/api/comunidades/${id}/eventos/${eventoId}/inscribir`)
-      setEventosAgendados((prev) => new Set([...prev, eid]))
-      setAgendaEstado((prev) => ({
-        ...prev,
-        [eid]: { loading: false, done: true, error: null },
-      }))
+      setAgendados((prev) => new Set([...prev, eventoId]))
     } catch (e) {
       const msg = getErrorMessage(e)
-      const yaAgendado = /agenda/i.test(msg)
-      if (yaAgendado) {
-        setEventosAgendados((prev) => new Set([...prev, eid]))
+      if (/agenda/i.test(msg)) {
+        setAgendados((prev) => new Set([...prev, eventoId]))
+      } else {
+        setAgendarErrores((prev) => ({ ...prev, [eventoId]: msg }))
       }
-      setAgendaEstado((prev) => ({
-        ...prev,
-        [eid]: {
-          loading: false,
-          done: yaAgendado,
-          error: yaAgendado ? null : msg,
-        },
-      }))
+    } finally {
+      setAgendando((prev) => ({ ...prev, [eventoId]: false }))
     }
   }
 
@@ -540,10 +529,8 @@ export default function ComunidadDetalle() {
                             })
                           : '—'
                     const mod = String(evento.modalidad ?? '').toLowerCase()
-                    const eid = String(evento.id)
-                    const estadoAgenda = agendaEstado[eid]
-                    const agendado = estadoAgenda?.done || eventosAgendados.has(eid)
-                    const agendando = estadoAgenda?.loading
+                    const yaAgendado = agendados.has(evento.id)
+                    const estaAgendando = !!agendando[evento.id]
                     return (
                       <div key={evento.id} className="mb-2 rounded-xl bg-blush/30 p-3">
                         <div className="flex items-start justify-between gap-2">
@@ -576,25 +563,31 @@ export default function ComunidadDetalle() {
                                 Programar →
                               </a>
                             ) : null}
-                            <button
-                              type="button"
-                              disabled={agendado || agendando}
-                              onClick={() => handleAgendarEvento(evento.id)}
-                              className={`rounded-lg px-2 py-1 text-xs disabled:opacity-60 ${
-                                agendado
-                                  ? 'bg-mint text-olive'
-                                  : 'border border-rose bg-white text-rose-dark hover:bg-rose-light'
-                              }`}
-                            >
-                              {agendando ? 'Agendando…' : agendado ? '✓ Agendado' : '📅 Agendar'}
-                            </button>
+                            {yaAgendado ? (
+                              <button
+                                type="button"
+                                disabled
+                                className="rounded-lg bg-mint px-2 py-1 text-xs text-olive opacity-70 cursor-not-allowed"
+                              >
+                                ✓ Agendado
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={estaAgendando}
+                                onClick={() => handleAgendarEvento(evento.id)}
+                                className="shrink-0 rounded-lg border border-rose bg-white px-2 py-1 text-xs text-rose-dark hover:bg-rose-light disabled:opacity-60"
+                              >
+                                📅 Agendar
+                              </button>
+                            )}
                           </div>
                         </div>
                         {evento.descripcion ? (
                           <p className="mt-1 text-xs text-stone">{evento.descripcion}</p>
                         ) : null}
-                        {estadoAgenda?.error ? (
-                          <p className="mt-1 text-xs text-rose-dark">{estadoAgenda.error}</p>
+                        {agendarErrores[evento.id] ? (
+                          <p className="mt-1 text-xs text-rose-dark">{agendarErrores[evento.id]}</p>
                         ) : null}
                       </div>
                     )
