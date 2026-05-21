@@ -37,8 +37,8 @@ router.get('/', verificarToken, async (req, res) => {
          'comunidad' AS tipo
        FROM eventos_comunidad e
        JOIN comunidades c ON c.id = e.comunidad_id
-       JOIN inscripciones_evento ie ON ie.evento_id = e.id AND ie.tipo = 'evento_comunidad'
-       WHERE ie.usuario_id = ?
+       JOIN inscripciones_evento ec ON ec.evento_id = e.id
+       WHERE ec.usuario_id = ?
        UNION ALL
        SELECT
          s.id,
