@@ -104,18 +104,20 @@ export default function AdminPagos() {
   const [transacciones, setTransacciones] = useState([])
   const [pendientes, setPendientes] = useState([])
   const [historial, setHistorial] = useState([])
+  const [tarifasAdmin, setTarifasAdmin] = useState([])
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [filtroMes, setFiltroMes] = useState('todos')
 
   const loadAll = useCallback(async () => {
     setLoading(true)
     try {
-      const [s, p, t, pen, h] = await Promise.all([
+      const [s, p, t, pen, h, tar] = await Promise.all([
         api.get('/api/admin/pagos/stats'),
         api.get('/api/admin/planes'),
         api.get('/api/admin/pagos/transacciones?limit=5'),
         api.get('/api/admin/pagos/pendientes'),
         api.get('/api/admin/pagos/historial'),
+        api.get('/api/admin/tarifas'),
       ])
       const sd = s.data?.stats ?? s.data?.data ?? s.data
       setStats(sd && typeof sd === 'object' ? sd : null)
@@ -123,12 +125,14 @@ export default function AdminPagos() {
       setTransacciones(normalizeArray(t.data, ['transacciones', 'data']))
       setPendientes(normalizeArray(pen.data, ['pendientes', 'data']).map(mapPendiente))
       setHistorial(normalizeArray(h.data, ['historial', 'data']).map(mapHistorialRow))
+      setTarifasAdmin(Array.isArray(tar.data) ? tar.data : [])
     } catch {
       setStats(null)
       setPlanes([])
       setTransacciones([])
       setPendientes([])
       setHistorial([])
+      setTarifasAdmin([])
     } finally {
       setLoading(false)
     }
@@ -372,6 +376,56 @@ export default function AdminPagos() {
             ))
           )}
         </ul>
+      </section>
+
+      <section className="rounded-2xl border border-line bg-white p-5 shadow-card">
+        <h2 className="font-display text-lg text-ink">Tarifas por mentora</h2>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+            <thead>
+              <tr className="border-b border-line bg-warm text-xs uppercase tracking-wide text-stone">
+                <th className="px-3 py-2 font-medium">Mentora</th>
+                <th className="px-3 py-2 font-medium">Tipo</th>
+                <th className="px-3 py-2 font-medium">Precio</th>
+                <th className="px-3 py-2 font-medium">Alumnas máx</th>
+                <th className="px-3 py-2 font-medium">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tarifasAdmin.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-3 py-6 text-center text-sm text-stone">
+                    No hay tarifas registradas.
+                  </td>
+                </tr>
+              ) : (
+                tarifasAdmin.map((t) => {
+                  const mentoraNombre = [t.nombre, t.apellido].filter(Boolean).join(' ').trim() || '—'
+                  const activo = t.activo === 1 || t.activo === true
+                  const tipoLabel = String(t.tipo ?? '—')
+                  const tipoFmt = tipoLabel !== '—' ? tipoLabel.charAt(0).toUpperCase() + tipoLabel.slice(1).toLowerCase() : '—'
+                  return (
+                    <tr key={t.id ?? `${mentoraNombre}-${t.tipo}`} className="border-b border-line last:border-0">
+                      <td className="px-3 py-2 text-ink">{mentoraNombre}</td>
+                      <td className="px-3 py-2 text-stone">{tipoFmt}</td>
+                      <td className="px-3 py-2 font-medium">{fmtMoney(t.precio)}</td>
+                      <td className="px-3 py-2 text-stone">{t.max_alumnas ?? '—'}</td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                            activo ? 'bg-mint text-olive' : 'bg-blush text-rose-dark'
+                          }`}
+                        >
+                          {activo ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-line bg-white p-5 shadow-card">

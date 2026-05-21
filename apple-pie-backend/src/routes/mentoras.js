@@ -7,6 +7,10 @@ const router = express.Router();
 router.get('/', mentorasController.getMentoras);
 router.post('/postular', verificarToken, mentorasController.postularse);
 router.post('/postularse', verificarToken, mentorasController.postularse);
+router.get('/:id/tarifas', mentorasController.getTarifas);
+router.put('/:id/tarifas', verificarToken, mentorasController.upsertTarifas);
+router.get('/:id/cursos', mentorasController.getCursos);
+router.put('/:id/cursos', verificarToken, mentorasController.upsertCursos);
 router.get('/:id', mentorasController.getMentoraById);
 router.put('/:id', verificarToken, mentorasController.actualizarPerfil);
 

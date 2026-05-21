@@ -53,6 +53,53 @@ function mapMentoraProfile(raw) {
   }
 }
 
+const copFormatter = new Intl.NumberFormat('es-CO', {
+  style: 'currency',
+  currency: 'COP',
+  maximumFractionDigits: 0,
+})
+
+function tarifaIcono(tipo) {
+  const t = String(tipo ?? '').toLowerCase()
+  if (t === 'grupal') return '👥'
+  if (t === 'intensiva') return '⚡'
+  return '👤'
+}
+
+function capitalizarTipo(tipo) {
+  const t = String(tipo ?? '').toLowerCase()
+  if (!t) return ''
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+function subtituloTarifa(tarifa) {
+  const n = Number(tarifa.max_alumnas)
+  return n === 1 ? '1 alumna' : `Hasta ${n} alumnas`
+}
+
+function tarifaCardClass(tipo) {
+  const t = String(tipo ?? '').toLowerCase()
+  if (t === 'grupal') {
+    return {
+      card: 'rounded-2xl border-2 border-olive bg-[#F8FBF5] p-5 text-center',
+      price: 'my-3 font-display text-3xl font-semibold text-olive',
+      btn: 'w-full rounded-xl bg-olive py-2.5 text-sm font-medium text-white hover:bg-olive-deep',
+    }
+  }
+  if (t === 'intensiva') {
+    return {
+      card: 'rounded-2xl border-2 border-faded bg-[#FDFAFA] p-5 text-center',
+      price: 'my-3 font-display text-3xl font-semibold text-stone',
+      btn: 'w-full rounded-xl border border-rose bg-white py-2.5 text-sm font-medium text-rose-dark hover:bg-rose-light',
+    }
+  }
+  return {
+    card: 'rounded-2xl border-2 border-rose bg-[#FFF8F9] p-5 text-center',
+    price: 'my-3 font-display text-3xl font-semibold text-rose-dark',
+    btn: 'w-full rounded-xl bg-rose py-2.5 text-sm font-medium text-ink shadow-sm hover:bg-rose-dark',
+  }
+}
+
 function fileBadge(tipo) {
   if (tipo === 'PDF')
     return <span className="rounded bg-blush px-2 py-2 text-xs font-bold text-rose-dark">PDF</span>
@@ -70,6 +117,8 @@ export default function PerfilMentora() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [mentora, setMentora] = useState(null)
+  const [tarifas, setTarifas] = useState([])
+  const [cursos, setCursos] = useState([])
 
   useEffect(() => {
     let cancelled = false
@@ -82,13 +131,25 @@ export default function PerfilMentora() {
       setLoading(true)
       setError('')
       setMentora(null)
+      setTarifas([])
+      setCursos([])
       try {
-        const { data } = await api.get(`/api/mentoras/${id}`)
-        if (!cancelled) setMentora(mapMentoraProfile(data))
+        const [perfilRes, tarifasRes, cursosRes] = await Promise.all([
+          api.get(`/api/mentoras/${id}`),
+          api.get(`/api/mentoras/${id}/tarifas`),
+          api.get(`/api/mentoras/${id}/cursos`),
+        ])
+        if (!cancelled) {
+          setMentora(mapMentoraProfile(perfilRes.data))
+          setTarifas(Array.isArray(tarifasRes.data) ? tarifasRes.data : [])
+          setCursos(Array.isArray(cursosRes.data) ? cursosRes.data : [])
+        }
       } catch (e) {
         if (!cancelled) {
           setError(getErrorMessage(e))
           setMentora(null)
+          setTarifas([])
+          setCursos([])
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -186,21 +247,22 @@ export default function PerfilMentora() {
 
           {tab === 'cursos' ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {mentora.cursos.length === 0 ? (
+              {cursos.length === 0 ? (
                 <p className="col-span-full rounded-2xl border border-line bg-white py-10 text-center text-sm text-stone">
                   Sin contenido disponible
                 </p>
               ) : (
-                mentora.cursos.map((c) => (
+                cursos.map((c) => (
                   <article
-                    key={c.id ?? c.nombre}
+                    key={c.id ?? c.titulo}
                     className="rounded-2xl border border-line bg-white p-4 transition-all hover:border-rose"
                   >
-                    <h3 className="font-medium text-ink">{c.nombre}</h3>
-                    <p className="mt-1 line-clamp-2 text-sm text-stone">{c.desc}</p>
+                    <h3 className="font-medium text-ink">{c.titulo}</h3>
+                    <p className="mt-1 line-clamp-2 text-sm text-stone">{c.descripcion}</p>
                     <span className="mt-2 inline-block rounded-full bg-mint px-2 py-0.5 text-xs text-olive">
-                      {c.nivel}
+                      {c.asignatura}
                     </span>
+                    <p className="mt-1 text-xs text-stone">{c.num_sesiones} sesiones</p>
                     <button
                       type="button"
                       className="mt-3 w-full rounded-xl border border-rose bg-white py-2 text-sm font-medium text-rose-dark transition-all hover:bg-rose-light"
@@ -215,60 +277,35 @@ export default function PerfilMentora() {
 
           {tab === 'tarifas' ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl border-2 border-rose bg-[#FFF8F9] p-5 text-center">
-                <p className="text-2xl" aria-hidden="true">
-                  👤
+              {tarifas.length === 0 ? (
+                <p className="col-span-full rounded-2xl border border-line bg-white py-10 text-center text-sm text-stone">
+                  Sin contenido disponible
                 </p>
-                <h3 className="mt-2 font-display text-lg text-ink">Individual</h3>
-                <p className="text-xs text-stone">1 alumna</p>
-                <p className="my-3 font-display text-3xl font-semibold text-rose-dark">$35.000</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPlanSel({ nombre: 'Individual', precio: '$35.000' })
-                    setPagoOpen(true)
-                  }}
-                  className="w-full rounded-xl bg-rose py-2.5 text-sm font-medium text-ink shadow-sm hover:bg-rose-dark"
-                >
-                  Agendar y pagar
-                </button>
-              </div>
-              <div className="rounded-2xl border-2 border-olive bg-[#F8FBF5] p-5 text-center">
-                <p className="text-2xl" aria-hidden="true">
-                  👥
-                </p>
-                <h3 className="mt-2 font-display text-lg text-ink">Grupal</h3>
-                <p className="text-xs text-stone">Hasta 5 alumnas</p>
-                <p className="my-3 font-display text-3xl font-semibold text-olive">$18.000</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPlanSel({ nombre: 'Grupal', precio: '$18.000' })
-                    setPagoOpen(true)
-                  }}
-                  className="w-full rounded-xl bg-olive py-2.5 text-sm font-medium text-white hover:bg-olive-deep"
-                >
-                  Agendar y pagar
-                </button>
-              </div>
-              <div className="rounded-2xl border-2 border-faded bg-[#FDFAFA] p-5 text-center">
-                <p className="text-2xl" aria-hidden="true">
-                  ⚡
-                </p>
-                <h3 className="mt-2 font-display text-lg text-ink">Intensiva</h3>
-                <p className="text-xs text-stone">3 sesiones / semana</p>
-                <p className="my-3 font-display text-3xl font-semibold text-stone">$95.000</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPlanSel({ nombre: 'Intensiva', precio: '$95.000' })
-                    setPagoOpen(true)
-                  }}
-                  className="w-full rounded-xl border border-rose bg-white py-2.5 text-sm font-medium text-rose-dark hover:bg-rose-light"
-                >
-                  Agendar y pagar
-                </button>
-              </div>
+              ) : (
+                tarifas.map((tarifa) => {
+                  const styles = tarifaCardClass(tarifa.tipo)
+                  return (
+                    <div key={tarifa.id ?? tarifa.tipo} className={styles.card}>
+                      <p className="text-2xl" aria-hidden="true">
+                        {tarifaIcono(tarifa.tipo)}
+                      </p>
+                      <h3 className="mt-2 font-display text-lg text-ink">{capitalizarTipo(tarifa.tipo)}</h3>
+                      <p className="text-xs text-stone">{subtituloTarifa(tarifa)}</p>
+                      <p className={styles.price}>{copFormatter.format(Number(tarifa.precio) || 0)}</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPlanSel({ nombre: tarifa.tipo, precio: tarifa.precio })
+                          setPagoOpen(true)
+                        }}
+                        className={styles.btn}
+                      >
+                        Agendar y pagar
+                      </button>
+                    </div>
+                  )
+                })
+              )}
             </div>
           ) : null}
 

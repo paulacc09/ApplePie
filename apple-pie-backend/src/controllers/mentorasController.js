@@ -1,5 +1,22 @@
 const pool = require('../config/db');
 
+async function resolveMentoraUsuarioId(id) {
+  const [rows] = await pool.query(
+    `SELECT u.id AS usuario_id
+     FROM usuarios u
+     LEFT JOIN perfiles_mentora pm ON pm.usuario_id = u.id AND pm.activa = 1
+     WHERE u.rol = 'mentora' AND (u.id = ? OR pm.id = ?)
+     LIMIT 1`,
+    [id, id]
+  );
+  if (rows.length === 0) return null;
+  return rows[0].usuario_id;
+}
+
+function toActivo(value) {
+  return value === false || value === 0 || value === '0' ? 0 : 1;
+}
+
 const postularse = async (req, res) => {
   try {
     const usuario_id = req.usuario.id;
@@ -214,9 +231,178 @@ const actualizarPerfil = async (req, res) => {
   }
 };
 
+const getTarifas = async (req, res) => {
+  try {
+    const mentoraId = await resolveMentoraUsuarioId(req.params.id);
+    if (!mentoraId) {
+      return res.status(404).json({ error: 'Mentora no encontrada' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT * FROM tarifas_mentora WHERE mentora_id = ? AND activo = 1 ORDER BY id ASC',
+      [mentoraId]
+    );
+
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error en getTarifas:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+const upsertTarifas = async (req, res) => {
+  try {
+    const mentoraId = await resolveMentoraUsuarioId(req.params.id);
+    if (!mentoraId) {
+      return res.status(404).json({ error: 'Mentora no encontrada' });
+    }
+
+    if (mentoraId !== req.usuario.id) {
+      return res.status(403).json({ error: 'No tienes permisos para modificar estas tarifas' });
+    }
+
+    const { tarifas } = req.body;
+    if (!Array.isArray(tarifas)) {
+      return res.status(400).json({ error: 'Se requiere un array tarifas' });
+    }
+
+    for (const t of tarifas) {
+      const activo = toActivo(t.activo);
+
+      if (t.id) {
+        const [existing] = await pool.query(
+          'SELECT id FROM tarifas_mentora WHERE id = ? AND mentora_id = ?',
+          [t.id, mentoraId]
+        );
+        if (existing.length === 0) {
+          return res.status(404).json({ error: `Tarifa ${t.id} no encontrada` });
+        }
+
+        await pool.query(
+          `UPDATE tarifas_mentora
+           SET tipo = ?, duracion_min = ?, precio = ?, max_alumnas = ?, activo = ?, updated_at = NOW()
+           WHERE id = ? AND mentora_id = ?`,
+          [t.tipo, t.duracion_min, t.precio, t.max_alumnas, activo, t.id, mentoraId]
+        );
+      } else {
+        await pool.query(
+          `INSERT INTO tarifas_mentora (mentora_id, tipo, duracion_min, precio, max_alumnas, activo)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [mentoraId, t.tipo, t.duracion_min, t.precio, t.max_alumnas, activo]
+        );
+      }
+    }
+
+    const [rows] = await pool.query(
+      'SELECT * FROM tarifas_mentora WHERE mentora_id = ? AND activo = 1 ORDER BY id ASC',
+      [mentoraId]
+    );
+
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error en upsertTarifas:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+const getCursos = async (req, res) => {
+  try {
+    const mentoraId = await resolveMentoraUsuarioId(req.params.id);
+    if (!mentoraId) {
+      return res.status(404).json({ error: 'Mentora no encontrada' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT * FROM cursos_mentora WHERE mentora_id = ? AND activo = 1 ORDER BY id ASC',
+      [mentoraId]
+    );
+
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error en getCursos:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+const upsertCursos = async (req, res) => {
+  try {
+    const mentoraId = await resolveMentoraUsuarioId(req.params.id);
+    if (!mentoraId) {
+      return res.status(404).json({ error: 'Mentora no encontrada' });
+    }
+
+    if (mentoraId !== req.usuario.id) {
+      return res.status(403).json({ error: 'No tienes permisos para modificar estos cursos' });
+    }
+
+    const { cursos } = req.body;
+    if (!Array.isArray(cursos)) {
+      return res.status(400).json({ error: 'Se requiere un array cursos' });
+    }
+
+    for (const c of cursos) {
+      const activo = toActivo(c.activo);
+
+      if (c.id) {
+        const [existing] = await pool.query(
+          'SELECT id FROM cursos_mentora WHERE id = ? AND mentora_id = ?',
+          [c.id, mentoraId]
+        );
+        if (existing.length === 0) {
+          return res.status(404).json({ error: `Curso ${c.id} no encontrado` });
+        }
+
+        await pool.query(
+          `UPDATE cursos_mentora
+           SET titulo = ?, descripcion = ?, asignatura = ?, num_sesiones = ?, activo = ?, updated_at = NOW()
+           WHERE id = ? AND mentora_id = ?`,
+          [c.titulo, c.descripcion, c.asignatura, c.num_sesiones, activo, c.id, mentoraId]
+        );
+      } else {
+        await pool.query(
+          `INSERT INTO cursos_mentora (mentora_id, titulo, descripcion, asignatura, num_sesiones, activo)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [mentoraId, c.titulo, c.descripcion, c.asignatura, c.num_sesiones, activo]
+        );
+      }
+    }
+
+    const [rows] = await pool.query(
+      'SELECT * FROM cursos_mentora WHERE mentora_id = ? AND activo = 1 ORDER BY id ASC',
+      [mentoraId]
+    );
+
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error en upsertCursos:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+const getTarifasAdmin = async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT t.*, u.nombre, u.apellido
+       FROM tarifas_mentora t
+       JOIN usuarios u ON u.id = t.mentora_id
+       ORDER BY u.nombre ASC, t.id ASC`
+    );
+
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error en getTarifasAdmin:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   postularse,
   getMentoras,
   getMentoraById,
   actualizarPerfil,
+  getTarifas,
+  upsertTarifas,
+  getCursos,
+  upsertCursos,
+  getTarifasAdmin,
 };

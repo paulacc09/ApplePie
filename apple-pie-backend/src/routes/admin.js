@@ -1,9 +1,17 @@
 const express = require('express');
 const adminController = require('../controllers/adminController');
+const mentorasController = require('../controllers/mentorasController');
 const verificarToken = require('../middleware/verificarToken');
 const verificarRol = require('../middleware/verificarRol');
 
 const router = express.Router();
+
+router.get(
+  '/tarifas',
+  verificarToken,
+  verificarRol(['admin']),
+  mentorasController.getTarifasAdmin
+);
 
 router.get(
   '/usuarios',

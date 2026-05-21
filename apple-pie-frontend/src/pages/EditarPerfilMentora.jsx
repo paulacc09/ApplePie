@@ -7,6 +7,7 @@ const inputBase =
   'w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose'
 
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+const TIPOS_TARIFA = ['individual', 'grupal', 'intensiva']
 
 const reseñas = [
   { id: '1', nombre: 'Andrea S.', texto: 'Explica súper claro, me salvó el parcial.' },
@@ -25,6 +26,32 @@ function parseDisponibilidad(raw) {
     }
   }
   return null
+}
+
+function toActivoBool(value) {
+  return value === 1 || value === true
+}
+
+function mapTarifaFromApi(t) {
+  return {
+    id: t.id,
+    tipo: t.tipo ?? 'individual',
+    duracion_min: t.duracion_min ?? 60,
+    precio: t.precio ?? 0,
+    max_alumnas: t.max_alumnas ?? 1,
+    activo: toActivoBool(t.activo),
+  }
+}
+
+function mapCursoFromApi(c) {
+  return {
+    id: c.id,
+    titulo: c.titulo ?? '',
+    descripcion: c.descripcion ?? '',
+    asignatura: c.asignatura ?? '',
+    num_sesiones: c.num_sesiones ?? 1,
+    activo: toActivoBool(c.activo),
+  }
 }
 
 function mapPerfilToForm(data) {
@@ -57,6 +84,16 @@ export default function EditarPerfilMentora() {
   const [guardando, setGuardando] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [saveOk, setSaveOk] = useState(null)
+  const [tarifas, setTarifas] = useState([])
+  const [tarifasRemovidas, setTarifasRemovidas] = useState([])
+  const [guardandoTarifas, setGuardandoTarifas] = useState(false)
+  const [tarifasError, setTarifasError] = useState(null)
+  const [tarifasOk, setTarifasOk] = useState(null)
+  const [cursos, setCursos] = useState([])
+  const [cursosRemovidos, setCursosRemovidos] = useState([])
+  const [guardandoCursos, setGuardandoCursos] = useState(false)
+  const [cursosError, setCursosError] = useState(null)
+  const [cursosOk, setCursosOk] = useState(null)
 
   const diasUsados = new Set(dias.map((d) => d.dia))
   const puedeAgregar = dias.length < DIAS_SEMANA.length
@@ -75,14 +112,22 @@ export default function EditarPerfilMentora() {
       setLoading(true)
       setError(null)
       try {
-        const { data } = await api.get(`/api/mentoras/${uid}`)
+        const [perfilRes, tarifasRes, cursosRes] = await Promise.all([
+          api.get(`/api/mentoras/${uid}`),
+          api.get(`/api/mentoras/${uid}/tarifas`),
+          api.get(`/api/mentoras/${uid}/cursos`),
+        ])
         if (cancelled) return
-        const mapped = mapPerfilToForm(data)
+        const mapped = mapPerfilToForm(perfilRes.data)
         setNombre(mapped.nombre)
         setAsigs(mapped.asigs)
         setSem(mapped.sem)
         setDesc(mapped.desc)
         setDias(mapped.dias)
+        setTarifas(Array.isArray(tarifasRes.data) ? tarifasRes.data.map(mapTarifaFromApi) : [])
+        setTarifasRemovidas([])
+        setCursos(Array.isArray(cursosRes.data) ? cursosRes.data.map(mapCursoFromApi) : [])
+        setCursosRemovidos([])
       } catch (e) {
         if (!cancelled) {
           setError(getErrorMessage(e))
@@ -118,6 +163,122 @@ export default function EditarPerfilMentora() {
 
   function eliminarFila(index) {
     setDias((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function agregarTarifa() {
+    setTarifas((prev) => [
+      ...prev,
+      { tipo: 'individual', duracion_min: 60, precio: 0, max_alumnas: 1, activo: true },
+    ])
+  }
+
+  function actualizarTarifa(index, campo, valor) {
+    setTarifas((prev) => prev.map((row, i) => (i === index ? { ...row, [campo]: valor } : row)))
+  }
+
+  function toggleTarifaActivo(index) {
+    setTarifas((prev) => prev.map((row, i) => (i === index ? { ...row, activo: !row.activo } : row)))
+  }
+
+  function eliminarTarifa(index) {
+    const t = tarifas[index]
+    if (t?.id) {
+      setTarifasRemovidas((prev) => [...prev, { ...t, activo: false }])
+    }
+    setTarifas((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function agregarCurso() {
+    setCursos((prev) => [
+      ...prev,
+      { titulo: '', descripcion: '', asignatura: '', num_sesiones: 1, activo: true },
+    ])
+  }
+
+  function actualizarCurso(index, campo, valor) {
+    setCursos((prev) => prev.map((row, i) => (i === index ? { ...row, [campo]: valor } : row)))
+  }
+
+  function toggleCursoActivo(index) {
+    setCursos((prev) => prev.map((row, i) => (i === index ? { ...row, activo: !row.activo } : row)))
+  }
+
+  function eliminarCurso(index) {
+    const c = cursos[index]
+    if (c?.id) {
+      setCursosRemovidos((prev) => [...prev, { ...c, activo: false }])
+    }
+    setCursos((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  function tarifaToPayload(t) {
+    return {
+      ...(t.id ? { id: t.id } : {}),
+      tipo: t.tipo,
+      duracion_min: Number(t.duracion_min),
+      precio: Number(t.precio),
+      max_alumnas: Number(t.max_alumnas),
+      activo: t.activo ? 1 : 0,
+    }
+  }
+
+  function cursoToPayload(c) {
+    return {
+      ...(c.id ? { id: c.id } : {}),
+      titulo: c.titulo,
+      descripcion: c.descripcion,
+      asignatura: c.asignatura,
+      num_sesiones: Number(c.num_sesiones),
+      activo: c.activo ? 1 : 0,
+    }
+  }
+
+  async function handleGuardarTarifas() {
+    const uid = user?.id ?? user?._id
+    setTarifasError(null)
+    setTarifasOk(null)
+
+    if (uid == null) {
+      setTarifasError('No se pudo identificar al usuario autenticado.')
+      return
+    }
+
+    setGuardandoTarifas(true)
+    try {
+      const payload = [...tarifas, ...tarifasRemovidas].map(tarifaToPayload)
+      const { data } = await api.put(`/api/mentoras/${uid}/tarifas`, { tarifas: payload })
+      setTarifas(Array.isArray(data) ? data.map(mapTarifaFromApi) : [])
+      setTarifasRemovidas([])
+      setTarifasOk('Tarifas guardadas correctamente.')
+    } catch (err) {
+      setTarifasError(getErrorMessage(err))
+    } finally {
+      setGuardandoTarifas(false)
+    }
+  }
+
+  async function handleGuardarCursos() {
+    const uid = user?.id ?? user?._id
+    setCursosError(null)
+    setCursosOk(null)
+
+    if (uid == null) {
+      setCursosError('No se pudo identificar al usuario autenticado.')
+      return
+    }
+
+    setGuardandoCursos(true)
+    try {
+      const payload = [...cursos, ...cursosRemovidos].map(cursoToPayload)
+      const { data } = await api.put(`/api/mentoras/${uid}/cursos`, { cursos: payload })
+      setCursos(Array.isArray(data) ? data.map(mapCursoFromApi) : [])
+      setCursosRemovidos([])
+      setCursosOk('Cursos guardados correctamente.')
+    } catch (err) {
+      setCursosError(getErrorMessage(err))
+    } finally {
+      setGuardandoCursos(false)
+    }
   }
 
   async function handleSubmit(e) {
@@ -315,6 +476,197 @@ export default function EditarPerfilMentora() {
               className="mt-3 text-sm font-medium text-rose-dark hover:underline disabled:cursor-not-allowed disabled:opacity-50"
             >
               + Agregar horario
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-white p-5">
+            <h2 className="font-display text-base text-ink">Mis tarifas</h2>
+            <div className="mt-3 space-y-4">
+              {tarifas.length === 0 ? (
+                <p className="text-sm text-stone">Sin tarifas configuradas.</p>
+              ) : (
+                tarifas.map((t, index) => (
+                  <div key={t.id ?? `tarifa-${index}`} className="space-y-2 border-t border-cream-2 pt-3 first:border-t-0 first:pt-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <label className="mb-1 block flex-1 text-xs font-medium text-stone">Tipo</label>
+                      <button
+                        type="button"
+                        onClick={() => eliminarTarifa(index)}
+                        className="text-sm text-rose-dark hover:underline"
+                        aria-label="Eliminar tarifa"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <select
+                      value={t.tipo}
+                      onChange={(e) => actualizarTarifa(index, 'tipo', e.target.value)}
+                      className={inputBase}
+                      aria-label={`Tipo tarifa ${index + 1}`}
+                    >
+                      {TIPOS_TARIFA.map((tipo) => (
+                        <option key={tipo} value={tipo}>
+                          {tipo}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-stone">Duración (min)</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={t.duracion_min}
+                          onChange={(e) => actualizarTarifa(index, 'duracion_min', e.target.value)}
+                          className={inputBase}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-stone">Precio</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={t.precio}
+                          onChange={(e) => actualizarTarifa(index, 'precio', e.target.value)}
+                          className={inputBase}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-stone">Máx. alumnas</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={t.max_alumnas}
+                        onChange={(e) => actualizarTarifa(index, 'max_alumnas', e.target.value)}
+                        className={inputBase}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleTarifaActivo(index)}
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        t.activo ? 'bg-mint text-olive' : 'bg-blush text-rose-dark'
+                      }`}
+                    >
+                      {t.activo ? 'Activo' : 'Pausado'}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={agregarTarifa}
+              className="mt-3 text-sm font-medium text-rose-dark hover:underline"
+            >
+              + Agregar tarifa
+            </button>
+            {tarifasError ? (
+              <p className="mt-3 rounded-xl border border-rose bg-blush px-4 py-3 text-sm text-rose-dark">{tarifasError}</p>
+            ) : null}
+            {tarifasOk ? (
+              <p className="mt-3 rounded-xl bg-mint px-4 py-2 text-sm text-olive">{tarifasOk}</p>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleGuardarTarifas}
+              disabled={guardandoTarifas}
+              className="mt-3 w-full rounded-xl bg-rose px-5 py-2.5 font-medium text-ink shadow-sm hover:bg-rose-dark disabled:opacity-60"
+            >
+              {guardandoTarifas ? 'Guardando…' : 'Guardar tarifas'}
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-line bg-white p-5">
+            <h2 className="font-display text-base text-ink">Mis cursos</h2>
+            <div className="mt-3 space-y-4">
+              {cursos.length === 0 ? (
+                <p className="text-sm text-stone">Sin cursos configurados.</p>
+              ) : (
+                cursos.map((c, index) => (
+                  <div key={c.id ?? `curso-${index}`} className="space-y-2 border-t border-cream-2 pt-3 first:border-t-0 first:pt-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <label className="mb-1 block flex-1 text-xs font-medium text-stone">Título</label>
+                      <button
+                        type="button"
+                        onClick={() => eliminarCurso(index)}
+                        className="text-sm text-rose-dark hover:underline"
+                        aria-label="Eliminar curso"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={c.titulo}
+                      onChange={(e) => actualizarCurso(index, 'titulo', e.target.value)}
+                      className={inputBase}
+                      placeholder="Título del curso"
+                    />
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-stone">Descripción</label>
+                      <textarea
+                        rows={2}
+                        value={c.descripcion}
+                        onChange={(e) => actualizarCurso(index, 'descripcion', e.target.value)}
+                        className={`${inputBase} h-auto min-h-[4rem] resize-y`}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-stone">Asignatura</label>
+                        <input
+                          type="text"
+                          value={c.asignatura}
+                          onChange={(e) => actualizarCurso(index, 'asignatura', e.target.value)}
+                          className={inputBase}
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-stone">Nº sesiones</label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={c.num_sesiones}
+                          onChange={(e) => actualizarCurso(index, 'num_sesiones', e.target.value)}
+                          className={inputBase}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleCursoActivo(index)}
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        c.activo ? 'bg-mint text-olive' : 'bg-blush text-rose-dark'
+                      }`}
+                    >
+                      {c.activo ? 'Activo' : 'Pausado'}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={agregarCurso}
+              className="mt-3 text-sm font-medium text-rose-dark hover:underline"
+            >
+              + Agregar curso
+            </button>
+            {cursosError ? (
+              <p className="mt-3 rounded-xl border border-rose bg-blush px-4 py-3 text-sm text-rose-dark">{cursosError}</p>
+            ) : null}
+            {cursosOk ? (
+              <p className="mt-3 rounded-xl bg-mint px-4 py-2 text-sm text-olive">{cursosOk}</p>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleGuardarCursos}
+              disabled={guardandoCursos}
+              className="mt-3 w-full rounded-xl bg-rose px-5 py-2.5 font-medium text-ink shadow-sm hover:bg-rose-dark disabled:opacity-60"
+            >
+              {guardandoCursos ? 'Guardando…' : 'Guardar cursos'}
             </button>
           </div>
 
