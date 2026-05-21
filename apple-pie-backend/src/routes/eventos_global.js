@@ -4,45 +4,10 @@ const verificarToken = require('../middleware/verificarToken');
 
 const router = express.Router();
 
-async function ensureEventosCalendarioTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS eventos_calendario (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      usuario_id INT NOT NULL,
-      evento_id INT NOT NULL,
-      comunidad_id INT NOT NULL,
-      tipo VARCHAR(50) NOT NULL DEFAULT 'evento_comunidad',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_usuario_evento_tipo (usuario_id, evento_id, tipo)
-    )
-  `);
-}
-
-async function ensureEventosComunidadTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS eventos_comunidad (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      comunidad_id INT NOT NULL,
-      creadora_id INT NOT NULL,
-      nombre VARCHAR(255) NOT NULL,
-      descripcion TEXT NULL,
-      fecha DATE NOT NULL,
-      hora TIME NOT NULL,
-      modalidad VARCHAR(50) NOT NULL DEFAULT 'virtual',
-      capacidad_max INT NOT NULL DEFAULT 30,
-      meet_link VARCHAR(255) NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_eventos_comunidad_fecha (comunidad_id, fecha, hora)
-    )
-  `);
-}
-
 // GET /api/eventos
 router.get('/', verificarToken, async (req, res) => {
   try {
     const userId = req.usuario.id;
-    await ensureEventosComunidadTable();
-    await ensureEventosCalendarioTable();
 
     const [rows] = await pool.query(
       `SELECT
@@ -72,8 +37,8 @@ router.get('/', verificarToken, async (req, res) => {
          'comunidad' AS tipo
        FROM eventos_comunidad e
        JOIN comunidades c ON c.id = e.comunidad_id
-       JOIN eventos_calendario ec ON ec.evento_id = e.id AND ec.tipo = 'evento_comunidad'
-       WHERE ec.usuario_id = ?
+       JOIN inscripciones_evento ie ON ie.evento_id = e.id AND ie.tipo = 'evento_comunidad'
+       WHERE ie.usuario_id = ?
        UNION ALL
        SELECT
          s.id,

@@ -4,44 +4,9 @@ const verificarToken = require('../middleware/verificarToken');
 
 const router = express.Router({ mergeParams: true });
 
-async function ensureEventosCalendarioTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS eventos_calendario (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      usuario_id INT NOT NULL,
-      evento_id INT NOT NULL,
-      comunidad_id INT NOT NULL,
-      tipo VARCHAR(50) NOT NULL DEFAULT 'evento_comunidad',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uniq_usuario_evento_tipo (usuario_id, evento_id, tipo)
-    )
-  `);
-}
-
-async function ensureEventosComunidadTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS eventos_comunidad (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      comunidad_id INT NOT NULL,
-      creadora_id INT NOT NULL,
-      nombre VARCHAR(255) NOT NULL,
-      descripcion TEXT NULL,
-      fecha DATE NOT NULL,
-      hora TIME NOT NULL,
-      modalidad VARCHAR(50) NOT NULL DEFAULT 'virtual',
-      capacidad_max INT NOT NULL DEFAULT 30,
-      meet_link VARCHAR(255) NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_eventos_comunidad_fecha (comunidad_id, fecha, hora)
-    )
-  `);
-}
-
 // GET /api/comunidades/:id/eventos
 router.get('/', verificarToken, async (req, res) => {
   try {
-    await ensureEventosComunidadTable();
-
     const [rows] = await pool.query(
       `SELECT e.id, e.nombre, e.descripcion, e.fecha, e.hora,
               e.modalidad, e.capacidad_max, e.meet_link,
@@ -70,8 +35,6 @@ router.post('/', verificarToken, async (req, res) => {
   }
 
   try {
-    await ensureEventosComunidadTable();
-
     const [result] = await pool.query(
       `INSERT INTO eventos_comunidad
          (comunidad_id, creadora_id, nombre, descripcion, fecha, hora, modalidad, capacidad_max, meet_link)
@@ -99,11 +62,9 @@ router.post('/', verificarToken, async (req, res) => {
 // GET /api/comunidades/:id/eventos/agendados
 router.get('/agendados', verificarToken, async (req, res) => {
   try {
-    await ensureEventosCalendarioTable();
-
     const [rows] = await pool.query(
       `SELECT evento_id
-       FROM eventos_calendario
+       FROM inscripciones_evento
        WHERE usuario_id = ? AND comunidad_id = ? AND tipo = 'evento_comunidad'`,
       [req.usuario.id, req.params.id]
     );
@@ -122,9 +83,6 @@ router.post('/:eventoId/inscribir', verificarToken, async (req, res) => {
     const eventoId = req.params.eventoId;
     const usuarioId = req.usuario.id;
 
-    await ensureEventosComunidadTable();
-    await ensureEventosCalendarioTable();
-
     const [evento] = await pool.query(
       'SELECT id FROM eventos_comunidad WHERE id = ? AND comunidad_id = ?',
       [eventoId, comunidadId]
@@ -135,7 +93,7 @@ router.post('/:eventoId/inscribir', verificarToken, async (req, res) => {
     }
 
     const [existente] = await pool.query(
-      `SELECT id FROM eventos_calendario
+      `SELECT id FROM inscripciones_evento
        WHERE usuario_id = ? AND evento_id = ? AND tipo = 'evento_comunidad'`,
       [usuarioId, eventoId]
     );
@@ -145,7 +103,7 @@ router.post('/:eventoId/inscribir', verificarToken, async (req, res) => {
     }
 
     await pool.query(
-      `INSERT INTO eventos_calendario (usuario_id, evento_id, comunidad_id, tipo)
+      `INSERT INTO inscripciones_evento (usuario_id, evento_id, comunidad_id, tipo)
        VALUES (?, ?, ?, 'evento_comunidad')`,
       [usuarioId, eventoId, comunidadId]
     );
