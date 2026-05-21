@@ -52,7 +52,9 @@ const crearReporte = async (req, res) => {
 
 const listarReportes = async (req, res) => {
   try {
-    const { estado, urgente } = req.query;
+    let { estado, urgente } = req.query;
+
+    if (estado === 'activo') estado = 'pendiente';
 
     const conditions = [];
     const params = [];
@@ -126,8 +128,56 @@ const resolverReporte = async (req, res) => {
   }
 };
 
+const getModerationStats = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT
+         COUNT(CASE WHEN estado = 'pendiente' THEN 1 END) AS reportes_pendientes,
+         COUNT(CASE WHEN estado = 'resuelto' AND MONTH(fecha_resolucion) = MONTH(NOW()) THEN 1 END) AS resueltos_mes,
+         COUNT(CASE WHEN accion_tomada = 'advertencia' THEN 1 END) AS advertencias_emitidas
+       FROM reportes_contenido`
+    );
+
+    return res.status(200).json(rows[0] ?? {});
+  } catch (err) {
+    console.error('Error en getModerationStats:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+const ACCIONES_FRONTEND = {
+  eliminar_contenido: { estado: 'resuelto', accion_tomada: 'eliminado' },
+  emitir_advertencia: { estado: 'resuelto', accion_tomada: 'advertencia' },
+  suspender_cuenta: { estado: 'resuelto', accion_tomada: 'cuenta_suspendida' },
+  desestimar: { estado: 'desestimado', accion_tomada: null },
+};
+
+const accionModeracionReporte = async (req, res) => {
+  try {
+    const { accion, notas_moderacion } = req.body;
+    const mapped = ACCIONES_FRONTEND[accion];
+
+    if (!mapped) {
+      return res.status(400).json({ error: 'accion inválida' });
+    }
+
+    req.body = {
+      estado: mapped.estado,
+      accion_tomada: mapped.accion_tomada,
+      notas_moderacion,
+    };
+
+    return resolverReporte(req, res);
+  } catch (err) {
+    console.error('Error en accionModeracionReporte:', err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
 module.exports = {
   crearReporte,
   listarReportes,
   resolverReporte,
+  getModerationStats,
+  accionModeracionReporte,
 };

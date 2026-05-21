@@ -9,14 +9,33 @@ router.post('/', verificarToken, reportesController.crearReporte);
 router.get(
   '/',
   verificarToken,
-  verificarRol(['admin']),
+  verificarRol(['admin', 'moderadora']),
   reportesController.listarReportes
 );
 router.patch(
   '/:id/resolver',
   verificarToken,
-  verificarRol(['admin']),
+  verificarRol(['admin', 'moderadora']),
   reportesController.resolverReporte
+);
+
+router.get(
+  '/stats',
+  verificarToken,
+  verificarRol(['admin', 'moderadora']),
+  reportesController.getModerationStats
+);
+router.get(
+  '/reportes',
+  verificarToken,
+  verificarRol(['admin', 'moderadora']),
+  reportesController.listarReportes
+);
+router.post(
+  '/reportes/:id/accion',
+  verificarToken,
+  verificarRol(['admin', 'moderadora']),
+  reportesController.accionModeracionReporte
 );
 
 module.exports = router;

@@ -93,6 +93,7 @@ app.use('/api/mentoras', mentorasRoutes);
 app.use('/api/sesiones', sesionesRoutes);
 app.use('/api/pagos', pagosRoutes);
 app.use('/api/reportes', reportesRoutes);
+app.use('/api/moderacion', reportesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notificaciones', notificacionesRoutes);
 app.use('/api/perfil', perfilRoutes);

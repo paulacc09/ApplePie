@@ -14,6 +14,14 @@ const EVENTO_INICIAL = {
   capacidad_max: 30,
 }
 
+const MOTIVOS_REPORTE = [
+  'Contenido inapropiado',
+  'Spam',
+  'Acoso',
+  'Información falsa',
+  'Otro',
+]
+
 function generarLinkCalendar(nombre, fecha, hora, descripcion) {
   const fechaHoraLocal = new Date(`${fecha}T${hora}:00`)
   const pad = (n) => String(n).padStart(2, '0')
@@ -137,6 +145,12 @@ export default function ComunidadDetalle() {
   const [agendados, setAgendados] = useState(() => new Set())
   const [agendando, setAgendando] = useState({})
   const [agendarErrores, setAgendarErrores] = useState({})
+  const [reportModal, setReportModal] = useState(null)
+  const [reportMotivo, setReportMotivo] = useState(MOTIVOS_REPORTE[0])
+  const [reportDescripcion, setReportDescripcion] = useState('')
+  const [reportEnviando, setReportEnviando] = useState(false)
+  const [reportError, setReportError] = useState('')
+  const [reportSuccess, setReportSuccess] = useState('')
 
   const recargarRecursosGrupo = useCallback(async () => {
     if (!id) return
@@ -367,6 +381,43 @@ export default function ComunidadDetalle() {
     void recargarRecursosGrupo()
   }
 
+  function abrirReporte(tipo_objetivo, objetivo_id) {
+    setReportModal({ tipo_objetivo, objetivo_id })
+    setReportMotivo(MOTIVOS_REPORTE[0])
+    setReportDescripcion('')
+    setReportError('')
+    setReportSuccess('')
+  }
+
+  function cerrarReporte() {
+    if (reportEnviando) return
+    setReportModal(null)
+    setReportError('')
+    setReportSuccess('')
+  }
+
+  async function handleEnviarReporte(e) {
+    e.preventDefault()
+    if (!reportModal) return
+    setReportError('')
+    setReportSuccess('')
+    setReportEnviando(true)
+    try {
+      await api.post('/api/reportes', {
+        tipo_objetivo: reportModal.tipo_objetivo,
+        objetivo_id: reportModal.objetivo_id,
+        motivo: reportMotivo,
+        descripcion: reportDescripcion.trim() || null,
+      })
+      setReportSuccess('Reporte enviado correctamente.')
+      setTimeout(() => cerrarReporte(), 1200)
+    } catch (err) {
+      setReportError(getErrorMessage(err))
+    } finally {
+      setReportEnviando(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-6 pb-8 lg:max-w-3xl">
       <Link to="/comunidades" className="text-sm font-medium text-rose-dark hover:underline">
@@ -457,12 +508,19 @@ export default function ComunidadDetalle() {
                         <span className="text-xs text-faded">{p.time}</span>
                       </div>
                       <p className="mt-2 text-sm text-ink">{p.text}</p>
-                      <div className="mt-3 flex gap-4 text-xs text-faded">
+                      <div className="mt-3 flex flex-wrap gap-4 text-xs text-faded">
                         <button type="button" className="hover:text-rose-dark">
                           💬 Responder
                         </button>
                         <button type="button" className="hover:text-rose-dark">
                           🤍 Me gusta
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => abrirReporte('publicacion', p.id)}
+                          className="hover:text-rose-dark"
+                        >
+                          🚩 Reportar
                         </button>
                       </div>
                       {p.replies?.length ? (
@@ -626,8 +684,16 @@ export default function ComunidadDetalle() {
                 {membersShown.map((m) => (
                   <div
                     key={m.id}
-                    className="rounded-2xl border border-line bg-warm p-4 text-center shadow-card transition-all hover:border-rose hover:shadow-card-hover"
+                    className="relative rounded-2xl border border-line bg-warm p-4 text-center shadow-card transition-all hover:border-rose hover:shadow-card-hover"
                   >
+                    <button
+                      type="button"
+                      onClick={() => abrirReporte('perfil', m.usuario_id)}
+                      className="absolute right-3 top-3 rounded-lg px-1.5 py-0.5 text-xs text-faded hover:bg-blush hover:text-rose-dark"
+                      aria-label="Reportar perfil"
+                    >
+                      🚩
+                    </button>
                     <div
                       className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full text-lg font-semibold text-white ${avatarBg(m.role)}`}
                     >
@@ -877,6 +943,82 @@ export default function ComunidadDetalle() {
                   className="rounded-xl bg-rose px-4 py-2 text-sm font-medium text-ink shadow-sm hover:bg-rose-dark disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {creandoEvento ? 'Creando...' : 'Crear evento'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {reportModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-3xl border border-line bg-cream p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="font-display text-lg text-ink">Reportar contenido</h2>
+              <button
+                type="button"
+                onClick={cerrarReporte}
+                disabled={reportEnviando}
+                className="text-sm text-faded transition-colors hover:text-rose-dark disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form className="space-y-4" onSubmit={handleEnviarReporte}>
+              <label className="block text-sm font-medium text-ink">
+                Motivo
+                <select
+                  value={reportMotivo}
+                  onChange={(e) => setReportMotivo(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
+                >
+                  {MOTIVOS_REPORTE.map((motivo) => (
+                    <option key={motivo} value={motivo}>
+                      {motivo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-sm font-medium text-ink">
+                Descripción (opcional)
+                <textarea
+                  rows={3}
+                  value={reportDescripcion}
+                  onChange={(e) => setReportDescripcion(e.target.value)}
+                  className="mt-1 w-full resize-none rounded-xl border border-rose bg-white px-4 py-3 text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose"
+                  placeholder="Detalles adicionales"
+                />
+              </label>
+
+              {reportError ? (
+                <p className="rounded-xl border border-rose bg-blush px-4 py-3 text-sm text-rose-dark">
+                  {reportError}
+                </p>
+              ) : null}
+
+              {reportSuccess ? (
+                <p className="rounded-xl border border-olive-light bg-mint px-4 py-3 text-sm text-olive">
+                  {reportSuccess}
+                </p>
+              ) : null}
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={cerrarReporte}
+                  disabled={reportEnviando}
+                  className="rounded-xl border border-rose bg-white px-4 py-2 text-sm font-medium text-rose-dark hover:bg-rose-light disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={reportEnviando}
+                  className="rounded-xl bg-rose px-4 py-2 text-sm font-medium text-ink shadow-sm hover:bg-rose-dark disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {reportEnviando ? 'Enviando...' : 'Enviar reporte'}
                 </button>
               </div>
             </form>
