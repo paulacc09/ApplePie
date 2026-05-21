@@ -9,10 +9,58 @@ const inputBase =
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
 const TIPOS_TARIFA = ['individual', 'grupal', 'intensiva']
 
-const reseñas = [
-  { id: '1', nombre: 'Andrea S.', texto: 'Explica súper claro, me salvó el parcial.' },
-  { id: '2', nombre: 'Laura M.', texto: 'Muy paciente y buenos materiales.' },
-]
+function nombreValoracion(v) {
+  return [v.nombre, v.apellido].filter(Boolean).join(' ').trim() || 'Usuario'
+}
+
+function formatFechaValoracion(raw) {
+  if (!raw) return '—'
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function EstrellasLectura({ puntuacion }) {
+  const n = Math.min(5, Math.max(0, Math.round(Number(puntuacion) || 0)))
+  return (
+    <span aria-label={`${n} de 5 estrellas`}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <span key={i} className={i < n ? 'text-rose' : 'text-faded'}>
+          ★
+        </span>
+      ))}
+    </span>
+  )
+}
+
+function ListaValoraciones({ valoraciones }) {
+  if (!valoraciones.length) {
+    return <p className="text-sm text-stone">Sin reseñas aún.</p>
+  }
+  return (
+    <ul className="list-none space-y-3 p-0">
+      {valoraciones.map((v, index) => {
+        const nombre = nombreValoracion(v)
+        const inicial = nombre.charAt(0).toUpperCase()
+        return (
+          <li key={v.id ?? `${v.created_at}-${index}`} className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-olive text-xs font-semibold text-white">
+              {inicial}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-ink">{nombre}</p>
+              <p className="text-sm">
+                <EstrellasLectura puntuacion={v.puntuacion} />
+              </p>
+              {v.comentario ? <p className="mt-0.5 text-xs italic text-stone">{v.comentario}</p> : null}
+              <p className="mt-1 text-xs text-faded">{formatFechaValoracion(v.created_at)}</p>
+            </div>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
 
 function parseDisponibilidad(raw) {
   if (!raw) return null
@@ -94,6 +142,7 @@ export default function EditarPerfilMentora() {
   const [guardandoCursos, setGuardandoCursos] = useState(false)
   const [cursosError, setCursosError] = useState(null)
   const [cursosOk, setCursosOk] = useState(null)
+  const [valoraciones, setValoraciones] = useState([])
 
   const diasUsados = new Set(dias.map((d) => d.dia))
   const puedeAgregar = dias.length < DIAS_SEMANA.length
@@ -112,10 +161,11 @@ export default function EditarPerfilMentora() {
       setLoading(true)
       setError(null)
       try {
-        const [perfilRes, tarifasRes, cursosRes] = await Promise.all([
+        const [perfilRes, tarifasRes, cursosRes, valoracionesRes] = await Promise.all([
           api.get(`/api/mentoras/${uid}`),
           api.get(`/api/mentoras/${uid}/tarifas`),
           api.get(`/api/mentoras/${uid}/cursos`),
+          api.get(`/api/mentoras/${uid}/valoraciones`),
         ])
         if (cancelled) return
         const mapped = mapPerfilToForm(perfilRes.data)
@@ -128,6 +178,7 @@ export default function EditarPerfilMentora() {
         setTarifasRemovidas([])
         setCursos(Array.isArray(cursosRes.data) ? cursosRes.data.map(mapCursoFromApi) : [])
         setCursosRemovidos([])
+        setValoraciones(Array.isArray(valoracionesRes.data) ? valoracionesRes.data : [])
       } catch (e) {
         if (!cancelled) {
           setError(getErrorMessage(e))
@@ -672,21 +723,9 @@ export default function EditarPerfilMentora() {
 
           <div className="rounded-2xl border border-line bg-white p-5">
             <h2 className="font-display text-base text-ink">Reseñas recibidas</h2>
-            <ul className="mt-2 list-none divide-y divide-cream-2 p-0">
-              {reseñas.map((r) => (
-                <li key={r.id} className="flex items-start gap-3 py-3 first:pt-0">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose text-xs font-semibold text-ink">
-                    {r.nombre.charAt(0)}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-ink">
-                      {r.nombre} <span className="text-rose">★★★★★</span>
-                    </p>
-                    <p className="mt-0.5 text-xs italic text-stone">{r.texto}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div className="mt-2">
+              <ListaValoraciones valoraciones={valoraciones} />
+            </div>
           </div>
         </div>
       </div>

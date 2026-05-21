@@ -5,12 +5,68 @@ import { getErrorMessage } from '../lib/apiError.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import ModalPago from '../components/ModalPago.jsx'
 
-const tabs = [
+const inputBase =
+  'w-full rounded-xl border border-rose bg-white px-4 py-3 text-ink placeholder:text-faded transition-all duration-200 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-rose'
+
+const tabsBase = [
   { id: 'cursos', label: 'Cursos' },
   { id: 'tarifas', label: 'Tarifas' },
   { id: 'archivos', label: 'Archivos' },
   { id: 'sobre', label: 'Sobre mí' },
 ]
+
+function nombreValoracion(v) {
+  return [v.nombre, v.apellido].filter(Boolean).join(' ').trim() || 'Usuario'
+}
+
+function formatFechaValoracion(raw) {
+  if (!raw) return '—'
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function EstrellasLectura({ puntuacion }) {
+  const n = Math.min(5, Math.max(0, Math.round(Number(puntuacion) || 0)))
+  return (
+    <span aria-label={`${n} de 5 estrellas`}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <span key={i} className={i < n ? 'text-rose' : 'text-faded'}>
+          ★
+        </span>
+      ))}
+    </span>
+  )
+}
+
+function ListaValoraciones({ valoraciones }) {
+  if (!valoraciones.length) {
+    return <p className="text-sm text-stone">Sin reseñas aún.</p>
+  }
+  return (
+    <ul className="list-none space-y-3 p-0">
+      {valoraciones.map((v, index) => {
+        const nombre = nombreValoracion(v)
+        const inicial = nombre.charAt(0).toUpperCase()
+        return (
+          <li key={v.id ?? `${v.created_at}-${index}`} className="flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-olive text-xs font-semibold text-white">
+              {inicial}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-ink">{nombre}</p>
+              <p className="text-sm">
+                <EstrellasLectura puntuacion={v.puntuacion} />
+              </p>
+              {v.comentario ? <p className="mt-0.5 text-xs italic text-stone">{v.comentario}</p> : null}
+              <p className="mt-1 text-xs text-faded">{formatFechaValoracion(v.created_at)}</p>
+            </div>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
 
 function splitTags(text) {
   if (Array.isArray(text)) return text.filter(Boolean)
@@ -119,6 +175,10 @@ export default function PerfilMentora() {
   const [mentora, setMentora] = useState(null)
   const [tarifas, setTarifas] = useState([])
   const [cursos, setCursos] = useState([])
+  const [valoraciones, setValoraciones] = useState([])
+  const [stars, setStars] = useState(0)
+  const [hoverStars, setHoverStars] = useState(0)
+  const [comentarioResena, setComentarioResena] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -133,16 +193,19 @@ export default function PerfilMentora() {
       setMentora(null)
       setTarifas([])
       setCursos([])
+      setValoraciones([])
       try {
-        const [perfilRes, tarifasRes, cursosRes] = await Promise.all([
+        const [perfilRes, tarifasRes, cursosRes, valoracionesRes] = await Promise.all([
           api.get(`/api/mentoras/${id}`),
           api.get(`/api/mentoras/${id}/tarifas`),
           api.get(`/api/mentoras/${id}/cursos`),
+          api.get(`/api/mentoras/${id}/valoraciones`),
         ])
         if (!cancelled) {
           setMentora(mapMentoraProfile(perfilRes.data))
           setTarifas(Array.isArray(tarifasRes.data) ? tarifasRes.data : [])
           setCursos(Array.isArray(cursosRes.data) ? cursosRes.data : [])
+          setValoraciones(Array.isArray(valoracionesRes.data) ? valoracionesRes.data : [])
         }
       } catch (e) {
         if (!cancelled) {
@@ -150,6 +213,7 @@ export default function PerfilMentora() {
           setMentora(null)
           setTarifas([])
           setCursos([])
+          setValoraciones([])
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -166,6 +230,13 @@ export default function PerfilMentora() {
     if (uid == null || !mentora?.usuario_id) return false
     return String(uid) === String(mentora.usuario_id)
   }, [user, mentora])
+
+  const tabs = useMemo(() => {
+    if (esMio) return tabsBase
+    return [...tabsBase, { id: 'resenar', label: 'Reseñar' }]
+  }, [esMio])
+
+  const puedeEnviarResena = false
 
   const inicial = (mentora?.nombreCompleto || mentora?.nombre || '?').trim().charAt(0).toUpperCase()
 
@@ -365,6 +436,59 @@ export default function PerfilMentora() {
                   Calificación: {mentora.rating} · Total de sesiones: {mentora.totalSesiones}
                 </p>
               </section>
+              <section>
+                <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-olive">Reseñas</h4>
+                <ListaValoraciones valoraciones={valoraciones} />
+              </section>
+            </div>
+          ) : null}
+
+          {tab === 'resenar' ? (
+            <div className="rounded-2xl border border-line bg-white p-6">
+              <p className="text-sm text-stone">Solo puedes reseñar después de completar una sesión.</p>
+              <div className={`mt-4 space-y-4 ${puedeEnviarResena ? '' : 'pointer-events-none opacity-60'}`}>
+                <div>
+                  <p className="mb-2 text-sm font-medium text-ink">Tu calificación</p>
+                  <div className="flex gap-1">
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const value = i + 1
+                      const activa = value <= (hoverStars || stars)
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          disabled={!puedeEnviarResena}
+                          onMouseEnter={() => setHoverStars(value)}
+                          onMouseLeave={() => setHoverStars(0)}
+                          onClick={() => setStars(value)}
+                          className={`text-2xl transition-colors ${activa ? 'text-rose' : 'text-faded'}`}
+                          aria-label={`${value} estrellas`}
+                        >
+                          ★
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink">Comentario</label>
+                  <textarea
+                    rows={4}
+                    value={comentarioResena}
+                    onChange={(e) => setComentarioResena(e.target.value)}
+                    disabled={!puedeEnviarResena}
+                    className={`${inputBase} h-auto min-h-[6rem] resize-y`}
+                    placeholder="Cuéntanos tu experiencia…"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={!puedeEnviarResena}
+                  className="rounded-xl bg-rose px-5 py-2.5 font-medium text-ink shadow-sm hover:bg-rose-dark disabled:opacity-60"
+                >
+                  Enviar reseña
+                </button>
+              </div>
             </div>
           ) : null}
         </>

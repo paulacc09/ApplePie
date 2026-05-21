@@ -379,6 +379,31 @@ const upsertCursos = async (req, res) => {
   }
 };
 
+const getValoraciones = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const mentoraId = await resolveMentoraUsuarioId(id);
+
+    if (!mentoraId) {
+      return res.status(404).json({ error: 'Mentora no encontrada' });
+    }
+
+    const [rows] = await pool.query(
+      `SELECT v.puntuacion, v.comentario, v.created_at, u.nombre, u.apellido
+       FROM valoraciones v
+       JOIN usuarios u ON u.id = v.estudiante_id
+       WHERE v.mentora_id = ?
+       ORDER BY v.created_at DESC`,
+      [mentoraId]
+    );
+
+    return res.status(200).json(rows);
+  } catch (err) {
+    console.error('Error en getValoraciones:', err);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 const getTarifasAdmin = async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -405,4 +430,5 @@ module.exports = {
   getCursos,
   upsertCursos,
   getTarifasAdmin,
+  getValoraciones,
 };

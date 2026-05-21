@@ -11,6 +11,7 @@ router.get('/:id/tarifas', mentorasController.getTarifas);
 router.put('/:id/tarifas', verificarToken, mentorasController.upsertTarifas);
 router.get('/:id/cursos', mentorasController.getCursos);
 router.put('/:id/cursos', verificarToken, mentorasController.upsertCursos);
+router.get('/:id/valoraciones', mentorasController.getValoraciones);
 router.get('/:id', mentorasController.getMentoraById);
 router.put('/:id', verificarToken, mentorasController.actualizarPerfil);
 
