@@ -139,16 +139,15 @@ export default function Home() {
         </div>
         <div className="flex flex-wrap gap-3 pb-2">
           {comunidades.map((c) => (
-            <article
-              key={c.id || c.nombre}
-              className="min-w-[160px] flex-1 rounded-2xl bg-rose-light p-4 shadow-card"
-            >
-              <div className="text-2xl" aria-hidden="true">
-                {careerEmoji(c.asignatura)}
-              </div>
-              <p className="mt-2 text-sm font-medium text-ink">{c.nombre}</p>
-              <p className="text-xs text-stone">{c.asignatura}</p>
-            </article>
+            <Link key={c.id || c.nombre} to={`/comunidades/${c.id}`}>
+              <article className="min-w-[160px] flex-1 cursor-pointer rounded-2xl bg-rose-light p-4 shadow-card hover:opacity-90">
+                <div className="text-2xl" aria-hidden="true">
+                  {careerEmoji(c.asignatura)}
+                </div>
+                <p className="mt-2 text-sm font-medium text-ink">{c.nombre}</p>
+                <p className="text-xs text-stone">{c.asignatura}</p>
+              </article>
+            </Link>
           ))}
           <button
             type="button"
