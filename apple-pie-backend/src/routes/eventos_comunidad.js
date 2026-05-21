@@ -65,7 +65,7 @@ router.get('/agendados', verificarToken, async (req, res) => {
     const [rows] = await pool.query(
       `SELECT evento_id
        FROM inscripciones_evento
-       WHERE usuario_id = ? AND comunidad_id = ? AND tipo = 'evento_comunidad'`,
+       WHERE usuario_id = ? AND comunidad_id = ?`,
       [req.usuario.id, req.params.id]
     );
 
@@ -94,7 +94,7 @@ router.post('/:eventoId/inscribir', verificarToken, async (req, res) => {
 
     const [existente] = await pool.query(
       `SELECT id FROM inscripciones_evento
-       WHERE usuario_id = ? AND evento_id = ? AND tipo = 'evento_comunidad'`,
+       WHERE usuario_id = ? AND evento_id = ?`,
       [usuarioId, eventoId]
     );
 
@@ -103,8 +103,8 @@ router.post('/:eventoId/inscribir', verificarToken, async (req, res) => {
     }
 
     await pool.query(
-      `INSERT INTO inscripciones_evento (usuario_id, evento_id, comunidad_id, tipo)
-       VALUES (?, ?, ?, 'evento_comunidad')`,
+      `INSERT INTO inscripciones_evento (usuario_id, evento_id, comunidad_id)
+       VALUES (?, ?, ?)`,
       [usuarioId, eventoId, comunidadId]
     );
 
