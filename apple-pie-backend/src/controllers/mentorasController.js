@@ -104,16 +104,19 @@ const getMentoraById = async (req, res) => {
          pm.experiencia,
          pm.especialidades,
          pm.logros,
+         pm.disponibilidad,
          pm.calificacion,
          pm.total_sesiones,
          pm.activa,
          u.nombre,
          u.apellido,
          u.email,
+         u.semestre,
          u.universidad,
          u.programa,
          u.bio,
-         u.foto_perfil
+         u.foto_perfil,
+         pm.bio_mentora AS descripcion
        FROM usuarios u
        LEFT JOIN perfiles_mentora pm ON pm.usuario_id = u.id AND pm.activa = 1
        WHERE u.rol = 'mentora' AND (u.id = ? OR pm.id = ?)
@@ -135,14 +138,28 @@ const getMentoraById = async (req, res) => {
 const actualizarPerfil = async (req, res) => {
   try {
     const { id } = req.params;
-    const { bio_mentora, experiencia, especialidades, logros } = req.body;
+    const {
+      nombre,
+      asignaturas,
+      semestre,
+      descripcion,
+      disponibilidad,
+      bio_mentora,
+      experiencia,
+      especialidades,
+      logros,
+    } = req.body;
 
     const [rows] = await pool.query(
-      'SELECT usuario_id FROM perfiles_mentora WHERE id = ? AND activa = 1',
-      [id]
+      `SELECT pm.id AS perfil_id, pm.usuario_id, pm.experiencia, pm.logros
+       FROM usuarios u
+       LEFT JOIN perfiles_mentora pm ON pm.usuario_id = u.id AND pm.activa = 1
+       WHERE u.rol = 'mentora' AND (u.id = ? OR pm.id = ?)
+       LIMIT 1`,
+      [id, id]
     );
 
-    if (rows.length === 0) {
+    if (rows.length === 0 || !rows[0].perfil_id) {
       return res.status(404).json({ error: 'Perfil no encontrado' });
     }
 
@@ -150,11 +167,44 @@ const actualizarPerfil = async (req, res) => {
       return res.status(403).json({ error: 'No tienes permisos para actualizar este perfil' });
     }
 
+    const perfilId = rows[0].perfil_id;
+    const usuarioId = rows[0].usuario_id;
+    const descFinal = descripcion ?? bio_mentora;
+    const espFinal = asignaturas ?? especialidades;
+
+    let disponibilidadValue = disponibilidad;
+    if (disponibilidad !== undefined && disponibilidad !== null && typeof disponibilidad !== 'string') {
+      disponibilidadValue = JSON.stringify(disponibilidad);
+    }
+
+    if (nombre !== undefined || semestre !== undefined) {
+      await pool.query(
+        `UPDATE usuarios
+         SET nombre = COALESCE(?, nombre),
+             semestre = COALESCE(?, semestre),
+             updated_at = NOW()
+         WHERE id = ?`,
+        [nombre ?? null, semestre ?? null, usuarioId]
+      );
+    }
+
     await pool.query(
       `UPDATE perfiles_mentora
-       SET bio_mentora = ?, experiencia = ?, especialidades = ?, logros = ?, updated_at = NOW()
+       SET bio_mentora = COALESCE(?, bio_mentora),
+           experiencia = COALESCE(?, experiencia),
+           especialidades = COALESCE(?, especialidades),
+           logros = COALESCE(?, logros),
+           disponibilidad = COALESCE(?, disponibilidad),
+           updated_at = NOW()
        WHERE id = ?`,
-      [bio_mentora, experiencia, especialidades, logros, id]
+      [
+        descFinal ?? null,
+        experiencia ?? rows[0].experiencia ?? null,
+        espFinal ?? null,
+        logros ?? rows[0].logros ?? null,
+        disponibilidadValue ?? null,
+        perfilId,
+      ]
     );
 
     return res.status(200).json({ message: 'Perfil actualizado' });
